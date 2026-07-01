@@ -46,7 +46,7 @@ class FaceMatchAgent:
 
         if similarity > 0.65:
             status = "MATCH"
-        elif similarity > 0.55:
+        elif similarity > 0.50:
             status = "REVIEW"
         else:
             status = "NO_MATCH"
