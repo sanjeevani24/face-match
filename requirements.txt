@@ -1,6 +1,8 @@
-insightface 
-onnxruntime 
-opencv-python 
+insightface
+onnxruntime
+opencv-python
 numpy
-fastapi
-uvicorn
+fastapi==0.138.2
+starlette==0.46.0
+uvicorn[standard]==0.49.0
+python-multipart>=0.0.32

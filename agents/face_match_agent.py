@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
+from agents.crop_agent import CropAgent
+from agents.antispoof_agent import AntiSpoofAgent
 
 
 class FaceMatchAgent:
@@ -10,6 +12,9 @@ class FaceMatchAgent:
             providers=["CPUExecutionProvider"]
         )
         self.app.prepare(ctx_id=0)
+
+        self.crop_agent = CropAgent()
+        self.antispoof_agent = AntiSpoofAgent()
 
     def get_embedding(self, image_path):
         image = cv2.imread(image_path)
@@ -27,8 +32,10 @@ class FaceMatchAgent:
         # print(f"Embedding for {image_path}: {embedding}")
         # return embedding
 
-    def compare_faces(self, aadhaar_image, selfie_image):
-        emb1 = self.get_embedding(aadhaar_image)
+    def compare_faces(self, cropped_aadhar, selfie_image):
+        
+        emb1 = self.get_embedding(cropped_aadhar)       
+        
         emb2 = self.get_embedding(selfie_image)
 
         similarity = np.dot(
@@ -39,19 +46,39 @@ class FaceMatchAgent:
         return float(similarity)
 
     def verify_face(self, aadhaar_image, selfie_image):
+
+        cropped_aadhaar = self.crop_agent.crop_face(
+            aadhaar_image
+        )
+
+        liveness = self.antispoof_agent.verify(
+            selfie_image
+        )
+
+        if not liveness["is_live"]:
+
+            return {
+                "status": "REJECTED",
+                "reason": "Spoof detected",
+                "liveness": liveness
+            }
+
         similarity = self.compare_faces(
-            aadhaar_image,
+            cropped_aadhaar,
             selfie_image
         )
 
         if similarity > 0.65:
             status = "MATCH"
+
         elif similarity > 0.50:
             status = "REVIEW"
+
         else:
             status = "NO_MATCH"
 
         return {
             "status": status,
-            "similarity_score": round(similarity, 3)
+            "similarity_score": round(similarity, 3),
+            "liveness": liveness
         }

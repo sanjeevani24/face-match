@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, FastAPI, HTTPException
 import os
 import shutil
-from face_match import FaceMatchAgent
+from agents.face_match_agent import FaceMatchAgent
 
 router = APIRouter()
 
@@ -9,12 +9,12 @@ agent = FaceMatchAgent()
 
 
 @router.get("/")
-async def home():
+def home():
     return {"message": "Face Match Agent Running"}
 
 
 @router.post("/face-match")
-async def face_match(
+def face_match(
     aadhaar: UploadFile = File(...),
     selfie: UploadFile = File(...)
 ):
@@ -46,3 +46,7 @@ async def face_match(
 
 app = FastAPI(title="Face Match API")
 app.include_router(router)
+
+# Keep a compatibility alias so `uvicorn main:router` serves the FastAPI app
+# instead of the raw APIRouter object.
+router = app
