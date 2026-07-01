@@ -12,7 +12,7 @@ __pycache__/
 # Virtual env
 .venv/
 
-# Uploads
+# Upload
 uploads/
 
 # Mac
