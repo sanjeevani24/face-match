@@ -1,19 +1,23 @@
-__pycache__
-uploads
-.venv
-
-# Anti-spoofing weights
-antispoof/resources/anti_spoof_models/*.pth
+# Virtual Environment
+.venv/
 
 # Python
 __pycache__/
 *.pyc
 
-# Virtual env
-.venv/
-
-# Upload
-uploads/
-
-# Mac
+# macOS
 .DS_Store
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# MediaPipe model
+models/*.task
+
+# Silent Face models
+antispoof/resources/anti_spoof_models/*.pth
+
+# IDE
+.vscode/
+.idea/
