@@ -17,3 +17,5 @@ class CameraService:
     def release(self):
 
         self.cap.release()
+
+    

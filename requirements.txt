@@ -1,6 +1,6 @@
 insightface
 onnxruntime
-opencv-python
+opencv-contrib-python
 numpy
 fastapi==0.138.2
 starlette==0.46.0
