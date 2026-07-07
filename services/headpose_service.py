@@ -22,10 +22,17 @@ class HeadPoseService:
     DOWN_EXIT = 10
 
     def normalize_angle(self, angle):
-        angle = angle % 360
 
-        if angle > 180:
-            angle -= 360
+        angle = float(angle)
+
+        # Convert to [-180, 180]
+        angle = (angle + 180) % 360 - 180
+
+        # Convert to [-90, 90]
+        if angle > 90:
+            angle -= 180
+        elif angle < -90:
+            angle += 180
 
         return angle
 
@@ -126,6 +133,12 @@ class HeadPoseService:
 
         elif pitch > 15:
             direction = "UP"
+
+        print(
+            f"Yaw={yaw:.1f}, "
+            f"Pitch={pitch:.1f}, "
+            f"Roll={roll:.1f}"
+        )
 
         return {
         "yaw": yaw,

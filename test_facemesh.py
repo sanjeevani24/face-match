@@ -8,15 +8,21 @@ from services.blink_service import BlinkService
 from services.headpose_service import HeadPoseService
 from services.challenge_service import ChallengeService
 from services.overlay_service import OverlayService
+from agents.verification_agent import VerificationAgent
+from services.capture_service import CaptureService
 
+capture = CaptureService()
 camera = CameraService()
 landmark = LandmarkService()
 blink = BlinkService()
 headpose = HeadPoseService()
 challenge = ChallengeService()
+verification_agent = VerificationAgent()
 
 printed = False
 previous_blink_count = 0
+verification_done = False
+verification_result = None
 
 while True:
 
@@ -51,26 +57,92 @@ while True:
 
         previous_blink_count = count
 
+        progress = min(100, int(capture.frames * 100 / capture.required_frames))
+
         challenge.update(
             pose["direction"],
             blink_increment
         )
 
-        message = challenge.message()
+        if challenge.finished() and not capture.ready():
+            capture.evaluate(frame, pose, ear)
 
-        ui_data = {
+        if capture.ready() and not verification_done:
 
-            "challenge": message,
-            "challenge_index": challenge.index + 1,
-            "challenge_total": len(challenge.challenges),
-            "blink_count": count,
-            "ear": ear,
-            "yaw": pose["yaw"],
-            "pitch": pose["pitch"],
-            "roll": pose["roll"],
-            "direction": pose["direction"],
-            "liveness": "Running"
-        }
+            best_frame = capture.frame()
+
+            cv2.imwrite(
+                "uploads/live_capture.png",
+                best_frame
+            )
+
+            aadhaar_face = cv2.imread(
+                "uploads/3.png"
+            )
+
+            verification_result = verification_agent.verify(
+                aadhaar_face,
+                best_frame
+            )
+
+            print(verification_result)
+
+            verification_done = True
+
+        # -----------------------------
+        # UI State
+        # -----------------------------
+
+        if not challenge.finished():
+
+            ui_data = {
+                "challenge": challenge.message(),
+                "challenge_index": challenge.index + 1,
+                "challenge_total": len(challenge.challenges),
+                "blink_count": count,
+                "ear": ear,
+                "yaw": pose["yaw"],
+                "pitch": pose["pitch"],
+                "roll": pose["roll"],
+                "direction": pose["direction"],
+                "liveness": "Running",
+                "capture_progress": 0,
+                "verification": None
+            }
+
+        elif not capture.ready():
+
+            ui_data = {
+                "challenge": "Look straight at the camera",
+                "challenge_index": len(challenge.challenges),
+                "challenge_total": len(challenge.challenges),
+                "blink_count": count,
+                "ear": ear,
+                "yaw": pose["yaw"],
+                "pitch": pose["pitch"],
+                "roll": pose["roll"],
+                "direction": pose["direction"],
+                "liveness": "Verified",
+                "capture_progress": progress,
+                "verification": None
+            }
+
+        else:
+
+            ui_data = {
+                "challenge": "Verification Complete",
+                "challenge_index": len(challenge.challenges),
+                "challenge_total": len(challenge.challenges),
+                "blink_count": count,
+                "ear": ear,
+                "yaw": pose["yaw"],
+                "pitch": pose["pitch"],
+                "roll": pose["roll"],
+                "direction": pose["direction"],
+                "liveness": "Verified",
+                "capture_progress": 100,
+                "verification": verification_result
+            }
 
         frame = OverlayService.draw(
             frame,
