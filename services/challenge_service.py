@@ -52,13 +52,14 @@ class ChallengeService:
         if success:
             self.success_frames += 1
         else:
-            self.success_frames = 0
+            self.success_frames = max(0, self.success_frames - 1)
 
-        # print(
-        #     f"{challenge.name} | "
-        #     f"Success={success} | "
-        #     f"Frames={self.success_frames}/{challenge.hold_frames}"
-        # )
+        print(
+            f"Challenge={challenge.name} | "
+            f"Direction={direction} | "
+            f"Success={success} | "
+            f"Frames={self.success_frames}"
+        )
 
         if self.success_frames >= challenge.hold_frames:
             # print(f"✅ {challenge.name} COMPLETED")

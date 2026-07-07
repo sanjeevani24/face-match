@@ -5,9 +5,9 @@ from collections import deque
 class HeadPoseService:
 
     def __init__(self):
-        self.x_history = deque(maxlen=5)
-        self.y_history = deque(maxlen=5)
-        self.direction = "CENTER"
+        self.yaw_history = deque(maxlen=5)
+        self.pitch_history = deque(maxlen=5)
+        self.roll_history = deque(maxlen=5)
 
     LEFT_ENTER = -18
     LEFT_EXIT = -10
@@ -20,6 +20,14 @@ class HeadPoseService:
 
     DOWN_ENTER = 18
     DOWN_EXIT = 10
+
+    def normalize_angle(self, angle):
+        angle = angle % 360
+
+        if angle > 180:
+            angle -= 360
+
+        return angle
 
     def estimate(self, face_landmarks, frame):
         h, w = frame.shape[:2]
@@ -77,71 +85,51 @@ class HeadPoseService:
             flags=cv2.SOLVEPNP_ITERATIVE
         )
 
-        nose_end_point2D, _ = cv2.projectPoints(
-            np.array([(0.0, 0.0, 120.0)]),
-            rotation_vector,
-            translation_vector,
-            camera_matrix,
-            dist_coeffs
+        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+
+        projection_matrix = np.hstack(
+        (
+        rotation_matrix,
+        translation_vector
+        ))
+
+        _, _, _, _, _, _, euler_angles = cv2.decomposeProjectionMatrix(
+        projection_matrix
         )
 
-        p1 = (
-            int(image_points[0][0]),
-            int(image_points[0][1])
-        )
+        pitch = float(euler_angles[0][0])
+        yaw = float(euler_angles[1][0])
+        roll = float(euler_angles[2][0])
 
-        p2 = (
-            int(nose_end_point2D[0][0][0]),
-            int(nose_end_point2D[0][0][1])
-        )
+        yaw = self.normalize_angle(yaw)
+        pitch = self.normalize_angle(pitch)
+        roll = self.normalize_angle(roll)
 
-        cv2.line(
-            frame,
-            p1,
-            p2,
-            (0,255,255),
-            3
-        )
+        self.yaw_history.append(yaw)
+        self.pitch_history.append(pitch)
+        self.roll_history.append(roll)
 
-        offset_x = p2[0] - p1[0]
-        offset_y = p2[1] - p1[1]
-
-        self.x_history.append(offset_x)
-        self.y_history.append(offset_y)
-
-        offset_x = sum(self.x_history) / len(self.x_history)
-        offset_y = sum(self.y_history) / len(self.y_history)
+        yaw = sum(self.yaw_history) / len(self.yaw_history)
+        pitch = sum(self.pitch_history) / len(self.pitch_history)
+        roll = sum(self.roll_history) / len(self.roll_history)
 
         direction = "CENTER"
 
-        if abs(offset_x) > abs(offset_y):
+        if yaw < -20:
+            direction = "LEFT"
 
-            if offset_x < -60:
-                direction = "LEFT"
+        elif yaw > 20:
+            direction = "RIGHT"
 
-            elif offset_x > 60:
-                direction = "RIGHT"
+        elif pitch < -15:
+            direction = "DOWN"
 
-            else:
-                direction = "CENTER"
-
-        else:
-
-            if offset_y < -50:
-                direction = "UP"
-
-            elif offset_y > 50:
-                direction = "DOWN"
-
-            else:
-                direction = "CENTER"
-
-        print(
-            f"Direction={direction} | X={offset_x} | Y={offset_y}"
-        )
+        elif pitch > 15:
+            direction = "UP"
 
         return {
-            "nose_x": offset_x,
-            "nose_y": offset_y,
-            "direction": direction
-        }
+        "yaw": yaw,
+        "pitch": pitch,
+        "roll": roll,
+        "direction": direction
+    }
