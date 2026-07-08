@@ -7,7 +7,7 @@ class CaptureService:
 
         self.frames = 0
 
-        self.required_frames = 10
+        self.required_frames = 5
 
         self.captured = False
 
@@ -15,11 +15,11 @@ class CaptureService:
 
     def evaluate(self, frame, pose, ear):
 
-        yaw_ok = abs(pose["yaw"]) < 15
+        yaw_ok = abs(pose["yaw"]) < 20
 
-        pitch_ok = abs(pose["pitch"]) < 25
+        pitch_ok = abs(pose["pitch"]) < 30
 
-        eyes_ok = ear > 0.18
+        eyes_ok = ear > 0.15
 
         gray = cv2.cvtColor(
             frame,
