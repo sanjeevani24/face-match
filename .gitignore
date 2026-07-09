@@ -1,43 +1,58 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
+### Frontend (Vite / React) ###
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/*.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.vite/
 
-# Virtual Environment
+### Backend (Python / FastAPI — lives at repo root) ###
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
 .venv/
 venv/
 env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 
-# VS Code
-.vscode/
-
-# macOS
-.DS_Store
-
-# Logs
-*.log
-
-# Environment Variables
-.env
-
-# Uploads
+# Uploaded / generated files — don't commit user data or captured frames
 uploads/*
 !uploads/.gitkeep
 
-# InsightFace Models
-resources/antispoof/
-.insightface/
+# Model weights & caches (InsightFace / MediaPipe — large, re-downloadable)
+**/.insightface/
+*.onnx
 models/*.task
+!models/challenge.py
 
-# ONNX Cache
-*.ONNX
+# Training artifacts (train.py / antispoof) — usually large and regenerable
+antispoof/saved_logs/
+antispoof/datasets/
+antispoof/resources/*.pth
+antispoof/resources/*.onnx
 
-# Temporary Images
-*.png
-*.jpg
-*.jpeg
+### Environment & secrets ###
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
 
-# Keep README images if any
-!docs/*.png
+### OS / editor cruft ###
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+### Logs ###
+*.log
