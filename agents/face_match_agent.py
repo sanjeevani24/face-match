@@ -68,7 +68,7 @@ class FaceMatchAgent:
             selfie_image
         )
 
-        if similarity > 0.65:
+        if similarity > 0.60:
             status = "MATCH"
 
         elif similarity > 0.50:

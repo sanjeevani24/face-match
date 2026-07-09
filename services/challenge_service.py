@@ -7,9 +7,9 @@ class ChallengeService:
     def __init__(self):
 
         self.challenges = [
-            Challenge("LEFT", "Turn your head left", hold_frames=15),
-            Challenge("RIGHT", "Turn your head right", hold_frames=15),
-            Challenge("UP", "Look up", hold_frames=15 ),
+            Challenge("LEFT", "Turn your head left", hold_frames=10),
+            Challenge("RIGHT", "Turn your head right", hold_frames=10),
+            Challenge("UP", "Look up", hold_frames=10 ),
             Challenge("BLINK", "Blink once", hold_frames=1)
         ]
 

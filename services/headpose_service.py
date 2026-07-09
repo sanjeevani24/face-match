@@ -8,6 +8,8 @@ class HeadPoseService:
         self.yaw_history = deque(maxlen=5)
         self.pitch_history = deque(maxlen=5)
         self.roll_history = deque(maxlen=5)
+        self.current_direction = "CENTER"  
+
 
     LEFT_ENTER = -18
     LEFT_EXIT = -10
@@ -15,10 +17,10 @@ class HeadPoseService:
     RIGHT_ENTER = 18
     RIGHT_EXIT = 10
 
-    UP_ENTER = -18
+    UP_ENTER = 18
     UP_EXIT = -10
 
-    DOWN_ENTER = 18
+    DOWN_ENTER = -18
     DOWN_EXIT = 10
 
     def normalize_angle(self, angle):
@@ -120,24 +122,35 @@ class HeadPoseService:
         pitch = sum(self.pitch_history) / len(self.pitch_history)
         roll = sum(self.roll_history) / len(self.roll_history)
 
-        direction = "CENTER"
-
-        if yaw < -20:
-            direction = "LEFT"
-
-        elif yaw > 20:
-            direction = "RIGHT"
-
-        elif pitch < -15:
-            direction = "DOWN"
-
-        elif pitch > 15:
-            direction = "UP"
+        direction = self.current_direction
+        
+        if direction == "LEFT":
+            if yaw > self.LEFT_EXIT:
+                direction = "CENTER"
+        elif direction == "RIGHT":
+            if yaw < self.RIGHT_EXIT:
+                direction = "CENTER"
+        elif direction == "UP":
+            if pitch > self.UP_EXIT:
+                direction = "CENTER"
+        elif direction == "DOWN":
+            if pitch < self.DOWN_EXIT:
+                direction = "CENTER"
+        else:  # currently CENTER, check for entry
+            if yaw < self.LEFT_ENTER:
+                direction = "LEFT"
+            elif yaw > self.RIGHT_ENTER:
+                direction = "RIGHT"
+            elif pitch < self.UP_ENTER:
+                direction = "UP"
+            elif pitch > self.DOWN_ENTER:
+                direction = "DOWN"
 
         print(
             f"Yaw={yaw:.1f}, "
             f"Pitch={pitch:.1f}, "
-            f"Roll={roll:.1f}"
+            f"Roll={roll:.1f}",
+            f"Direction={direction}"
         )
 
         return {

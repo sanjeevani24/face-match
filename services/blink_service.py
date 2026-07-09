@@ -13,7 +13,7 @@ class BlinkService:
 
     EAR_THRESHOLD = 0.20
 
-    MIN_CLOSED_FRAMES = 3
+    MIN_CLOSED_FRAMES = 2
 
     COOLDOWN_FRAMES = 5
 

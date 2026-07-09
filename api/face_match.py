@@ -6,12 +6,12 @@ router = APIRouter(
     prefix="/face-match",
     tags=["Face Match"])
 
+agent = FaceMatchAgent()
+
 @router.post("/")
 def face_match(
     aadhaar: UploadFile = File(...),
     selfie: UploadFile = File(...)):
-
-    agent = FaceMatchAgent()
 
     aadhaar_path = FileUtils.save_upload(
         aadhaar)

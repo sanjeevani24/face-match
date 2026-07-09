@@ -23,7 +23,7 @@ class VerificationAgent:
 
         return "Low"
 
-    def verify(self, aadhaar_face, live_face):
+    def verify(self, aadhaar_face, live_face, margin = 0.05):
 
         aadhaar_embedding = self.embedding.extract(
             aadhaar_face
@@ -41,14 +41,16 @@ class VerificationAgent:
         threshold = 0.55
 
         if similarity >= threshold:
-            reason = "Face match successful"
+            decision = "pass"
+        elif similarity <= threshold - margin:
+            decision = "fail"
         else:
-            reason = "Face mismatch"
+            decision = "review"
 
         return {
             "verified": similarity >= threshold,
             "similarity": round(similarity, 4),
             "threshold": threshold,
             "confidence": self.get_confidence(similarity),
-            "reason": reason
+            "decision": decision
         }
