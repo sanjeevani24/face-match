@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Verification from "./pages/Verification.jsx";
 import FaceMatchCheck from "./pages/FaceMatchCheck.jsx";
 import History from "./pages/History.jsx";
+import Logs from "./pages/Logs.jsx";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/face-match" element={<FaceMatchCheck />} />
         <Route path="/history" element={<History />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/logs" element={<Logs />} />
       </Route>
     </Routes>
   );

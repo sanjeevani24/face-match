@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, ScanFace, History as HistoryIcon, ShieldCheck, UserCheck } from "lucide-react";
+import { LayoutDashboard, ScanFace, History as HistoryIcon, ShieldCheck, UserCheck, FileText } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/verification", label: "Verification", icon: ScanFace },
   { to: "/face-match", label: "Face Match Check", icon: UserCheck },
   { to: "/history", label: "History", icon: HistoryIcon },
+  { to: "/logs", label: "Logs", icon: FileText },
 ];
 
 export default function Sidebar({ open, onClose }) {

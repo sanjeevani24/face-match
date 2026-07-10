@@ -11,3 +11,4 @@ pillow
 python-dotenv
 torch
 torchvision
+sqlalchemy

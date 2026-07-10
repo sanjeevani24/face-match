@@ -108,3 +108,18 @@ export async function checkFaceMatch(aadhaarFile, selfieFile) {
   });
   return data;
 }
+
+export async function getDashboardStats() {
+  const { data } = await api.get("/dashboard/stats");
+  return data;
+}
+
+export async function getHistory(limit = 50) {
+  const { data } = await api.get("/history", { params: { limit } });
+  return data;
+}
+
+export async function getLogs(limit = 100) {
+  const { data } = await api.get("/logs", { params: { limit } });
+  return data;
+}
