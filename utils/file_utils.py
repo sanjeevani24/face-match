@@ -7,7 +7,10 @@ class FileUtils:
     @staticmethod
     def save_upload(file):
 
-        uploads_dir = "uploads"
+        uploads_dir = os.path.join(
+            os.environ.get("DATA_DIR", "."),
+            "uploads",
+        )
 
         os.makedirs(
             uploads_dir,

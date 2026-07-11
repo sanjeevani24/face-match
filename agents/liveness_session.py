@@ -14,7 +14,6 @@ from services.capture_service import CaptureService
 from services.record_service import save_verification_record
 from agents.antispoof_agent import AntiSpoofAgent
 
-
 class LivenessSession:
 
     def __init__(self, aadhaar_path):
@@ -34,13 +33,12 @@ class LivenessSession:
         self.start_time = time.time()
 
         self.frame_count = 0
-        self.spoof_checks = []          # bool: True = live
-        self.spoof_confidences = []     # float: confidence for each check, regardless of live/not-live
+        self.spoof_checks = []
+        self.spoof_confidences = []
         self.SPOOF_CHECK_INTERVAL = 5
         self.MIN_SPOOF_CHECKS = 4
         self.LIVE_RATIO_REQUIRED = 0.7
 
-        # Per-challenge timing: name -> seconds spent on it
         self.challenge_timings = {}
         self._current_challenge_name = self.challenge.current().name if self.challenge.current() else None
         self._current_challenge_start = time.time()
@@ -48,8 +46,13 @@ class LivenessSession:
         self.last_pose = None
         self.last_ear = None
 
+    def _uploads_dir(self):
+        return os.path.join(os.environ.get("DATA_DIR", "."), "uploads")
+
     def check_spoof(self, frame):
-        tmp_path = f"uploads/tmp_spoof_{uuid.uuid4().hex}.jpg"
+        uploads_dir = self._uploads_dir()
+        os.makedirs(uploads_dir, exist_ok=True)
+        tmp_path = os.path.join(uploads_dir, f"tmp_spoof_{uuid.uuid4().hex}.jpg")
         cv2.imwrite(tmp_path, frame)
         try:
             result = self.antispoof.verify(tmp_path)
@@ -69,7 +72,6 @@ class LivenessSession:
         return live_ratio < self.LIVE_RATIO_REQUIRED
 
     def spoof_summary(self):
-        """Common summary dict reused by every save_verification_record call."""
         if not self.spoof_confidences:
             return {
                 "spoof_checks_count": 0,
@@ -86,14 +88,11 @@ class LivenessSession:
         }
 
     def _record_challenge_transition(self):
-        """Call right after self.challenge.update(...) to log how long the
-        just-finished challenge took, whenever the challenge index moves on."""
         current = self.challenge.current()
         new_name = current.name if current else "FINISHED"
 
         if new_name != self._current_challenge_name:
             elapsed = time.time() - self._current_challenge_start
-            # Key by the challenge that just finished, not the new one
             self.challenge_timings[self._current_challenge_name] = round(elapsed, 2)
             self._current_challenge_name = new_name
             self._current_challenge_start = time.time()
@@ -162,7 +161,11 @@ class LivenessSession:
         if best_frame is None:
             raise Exception("No capture frame available.")
 
-        self.capture_path = f"uploads/live_{datetime.now():%Y%m%d_%H%M%S}.png"
+        uploads_dir = self._uploads_dir()
+        os.makedirs(uploads_dir, exist_ok=True)
+        self.capture_path = os.path.join(
+            uploads_dir, f"live_{datetime.now():%Y%m%d_%H%M%S}.png"
+        )
         cv2.imwrite(self.capture_path, best_frame)
 
         aadhaar_face = cv2.imread(self.aadhaar_path)
