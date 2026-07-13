@@ -30,8 +30,10 @@ sudo apt install -y \
     python3-venv \
     python3-dev \
     build-essential \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
+    libgles2 \
+    libegl1 \
     sqlite3 \
     certbot \
     python3-certbot-nginx
@@ -89,6 +91,12 @@ INSIGHTFACE_HOME=/var/www/html/face-match/data/.insightface
 
 # Allowed frontend origin (using standard HTTPS port)
 ALLOWED_ORIGINS=https://face-match.auremoai.site
+```
+
+### D. Download MediaPipe Model Weights
+Since the MediaPipe face landmarker model is a large binary file (~5.7MB), it is ignored in Git. You must download it manually on the server:
+```bash
+wget -O /var/www/html/face-match/models/face_landmarker.task https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
 ```
 
 ---
