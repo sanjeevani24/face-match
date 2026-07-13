@@ -14,6 +14,7 @@ The backend files will be located at:
 * **Data & SQLite Database Directory**: `/var/www/html/face-match/data`
 * **Database File Path**: `/var/www/html/face-match/data/ekyc.db`
 * **Uploaded Images Directory**: `/var/www/html/face-match/data/uploads`
+* **InsightFace Model Directory**: `/var/www/html/face-match/data/.insightface`
 
 ---
 
@@ -83,6 +84,9 @@ Add the following configurations:
 # Directory for storing sqlite database and images
 DATA_DIR=/var/www/html/face-match/data
 
+# Explicitly redirect InsightFace model download to our writeable project data folder
+INSIGHTFACE_HOME=/var/www/html/face-match/data/.insightface
+
 # Allowed frontend origin (using standard HTTPS port)
 ALLOWED_ORIGINS=https://face-match.auremoai.site
 ```
@@ -97,7 +101,7 @@ Create a systemd unit file to handle the automatic starting and restarting of th
 sudo nano /etc/systemd/system/face-match-backend.service
 ```
 
-Paste the following configuration:
+Paste the following configuration. **Notice the addition of `TimeoutStartSec=300` to allow Uvicorn enough time to download the model (~300MB) on the first start**:
 
 ```ini
 [Unit]
@@ -111,6 +115,7 @@ WorkingDirectory=/var/www/html/face-match
 EnvironmentFile=/var/www/html/face-match/.env
 Environment="PATH=/var/www/html/face-match/.venv/bin"
 ExecStart=/var/www/html/face-match/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8037 --workers 2
+TimeoutStartSec=300
 
 [Install]
 WantedBy=multi-user.target
