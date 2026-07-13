@@ -1,6 +1,6 @@
 # AI KYC Liveness Detection & Face Verification — Backend Deployment Guide
 
-This document describes the backend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the API domain **face-match-api.auremoai.site** on port **8036**.
+This document describes the backend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the secure API domain **https://face-match-api.auremoai.site:8036**.
 
 ---
 
@@ -17,7 +17,7 @@ The backend files will be located at:
 
 ## 2. Server Installation & Prerequisites
 
-OpenCV, MediaPipe, and InsightFace require graphics-rendering libraries. Install them alongside Python dependencies:
+OpenCV, MediaPipe, and InsightFace require graphics-rendering libraries. Install them alongside Python dependencies and Certbot for SSL certificates:
 
 ```bash
 sudo apt update
@@ -29,7 +29,9 @@ sudo apt install -y \
     build-essential \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    sqlite3
+    sqlite3 \
+    certbot \
+    python3-certbot-nginx
 ```
 
 ---
@@ -79,8 +81,8 @@ Add the following configurations:
 # Directory for storing sqlite database and images
 DATA_DIR=/var/www/html/face-match/data
 
-# Allowed frontend origin (cross-origin request allowed from your frontend domain)
-ALLOWED_ORIGINS=http://face-match.auremoai.site:8036,https://face-match.auremoai.site:8036
+# Allowed frontend origin (using HTTPS on port 8036)
+ALLOWED_ORIGINS=https://face-match.auremoai.site:8036
 ```
 
 ---
@@ -120,28 +122,43 @@ sudo systemctl enable face-match-backend
 sudo systemctl start face-match-backend
 ```
 
-To view backend service logs:
+---
+
+## 6. SSL Certificate Acquisition
+
+Before configuring Nginx, fetch the SSL certificate for your API domain using Certbot:
+
 ```bash
-sudo journalctl -u face-match-backend -f
+# Obtain SSL certificate via Nginx plugin
+sudo certbot certonly --nginx -d face-match-api.auremoai.site
 ```
 
 ---
 
-## 6. Nginx Server Configuration (API Domain)
+## 7. Nginx Server Configuration (HTTPS API Domain)
 
-Create an Nginx configuration file to listen on port **8036** for the domain **face-match-api.auremoai.site** and proxy it to the local port **8000**.
+Create an Nginx configuration file to listen on port **8036** with SSL enabled for the domain **face-match-api.auremoai.site** and proxy it to the local port **8000**.
 
 ### A. Create configuration file
 ```bash
 sudo nano /etc/nginx/sites-available/face-match-backend
 ```
 
-Paste the following server block config:
+Paste the following server block config (make sure to replace the SSL certificate path with yours if different):
 
 ```nginx
 server {
-    listen 8036;
+    listen 8036 ssl;
     server_name face-match-api.auremoai.site;
+
+    # SSL Certificates (obtained via Certbot)
+    ssl_certificate /etc/letsencrypt/live/face-match-api.auremoai.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/face-match-api.auremoai.site/privkey.pem;
+
+    # Secure SSL Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
 
     # Set maximum upload size (vital for image submissions)
     client_max_body_size 20M;
@@ -162,9 +179,9 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Handle preflight CORS requests if needed (FastAPI handles it as well)
+        # Handle preflight CORS requests
         if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' 'http://face-match.auremoai.site:8036' always;
+            add_header 'Access-Control-Allow-Origin' 'https://face-match.auremoai.site:8036' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, DELETE, PUT' always;
             add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
             add_header 'Access-Control-Max-Age' 1728000 always;
@@ -186,7 +203,7 @@ sudo systemctl restart nginx
 
 ---
 
-## 7. Redeploying Updates (When Backend Code Changes)
+## 8. Redeploying Updates (When Backend Code Changes)
 
 When you push new backend updates to your git repository, run these commands on the production server to deploy the changes:
 

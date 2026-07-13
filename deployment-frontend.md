@@ -1,6 +1,6 @@
 # AI KYC Liveness Detection & Face Verification — Frontend Deployment Guide
 
-This document describes the frontend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the domain **face-match.auremoai.site** on port **8036**.
+This document describes the frontend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the secure domain **https://face-match.auremoai.site:8036**.
 
 ---
 
@@ -15,12 +15,12 @@ This document describes the frontend deployment process on your Ubuntu/Debian se
 
 ## 2. Server Installation & Prerequisites
 
-To build the frontend, Node.js (v18+) is required. Install it using the following commands:
+To build the frontend, Node.js (v18+) is required. Install it along with Nginx and Certbot (for SSL certificates):
 
 ```bash
 sudo apt update
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs nginx curl
+sudo apt install -y nodejs nginx curl certbot python3-certbot-nginx
 ```
 
 ---
@@ -37,10 +37,10 @@ Create a production `.env` file:
 nano /var/www/html/face-match/frontend/.env
 ```
 
-Paste the following configurations. **Note that we explicitly point to the backend API subdomain on port 8036**:
+Paste the following configurations. **Note that we explicitly point to the secure HTTPS backend API subdomain on port 8036**:
 ```env
-# URL of the backend FastAPI service
-VITE_API_URL=http://face-match-api.auremoai.site:8036
+# URL of the backend FastAPI service (using HTTPS)
+VITE_API_URL=https://face-match-api.auremoai.site:8036
 
 # Timeout for API requests (15 seconds)
 VITE_API_TIMEOUT=15000
@@ -68,21 +68,42 @@ cp -r /var/www/html/face-match/frontend/dist/* /var/www/html/face-match/
 
 ---
 
-## 5. Nginx Server Configuration (Frontend Domain)
+## 5. SSL Certificate Acquisition (CRITICAL)
 
-Create an Nginx configuration file to listen on port **8036** for the domain **face-match.auremoai.site** and serve the static files.
+Web browsers (Chrome, Safari, Firefox, Edge) strictly restrict camera permissions (`getUserMedia`) to **Secure Contexts** (`https://`). Without SSL, the webcam module will fail to start.
+
+Run the following command to fetch your SSL certificate via Certbot:
+
+```bash
+sudo certbot certonly --nginx -d face-match.auremoai.site
+```
+
+---
+
+## 6. Nginx Server Configuration (HTTPS Frontend Domain)
+
+Create an Nginx configuration file to listen on port **8036** with SSL enabled for the domain **face-match.auremoai.site** and serve the static files.
 
 ### A. Create configuration file
 ```bash
 sudo nano /etc/nginx/sites-available/face-match-frontend
 ```
 
-Paste the following server block configuration:
+Paste the following server block configuration (make sure to replace the SSL certificate path with yours if different):
 
 ```nginx
 server {
-    listen 8036;
+    listen 8036 ssl;
     server_name face-match.auremoai.site;
+
+    # SSL Certificates (obtained via Certbot)
+    ssl_certificate /etc/letsencrypt/live/face-match.auremoai.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/face-match.auremoai.site/privkey.pem;
+
+    # Secure SSL Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
 
     # Root directory containing static React assets
     # Point directly to frontend/dist or to the copied root path /var/www/html/face-match
@@ -108,54 +129,6 @@ sudo ln -s /etc/nginx/sites-available/face-match-frontend /etc/nginx/sites-enabl
 sudo nginx -t
 sudo systemctl restart nginx
 ```
-
----
-
-## 6. HTTPS & Camera Access Setup (CRITICAL)
-
-> [!WARNING]
-> Browsers restrict camera permissions (`getUserMedia`) strictly to **Secure Contexts** (`https://`). 
-> 
-> Because you are serving the frontend on `http://face-match.auremoai.site:8036` (over HTTP), **the camera will be blocked by the browser** and fail to run. You MUST configure SSL (HTTPS).
-
-### Option A: SSL using Let's Encrypt (Recommended)
-Request an SSL certificate for your frontend domain:
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d face-match.auremoai.site
-```
-
-To configure Certbot for port 8036, adjust the SSL server block in Nginx manually if needed:
-
-```nginx
-server {
-    listen 8036 ssl;
-    server_name face-match.auremoai.site;
-
-    ssl_certificate /etc/letsencrypt/live/face-match.auremoai.site/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/face-match.auremoai.site/privkey.pem;
-
-    root /var/www/html/face-match/frontend/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-```
-
-Make sure that your `VITE_API_URL` environment variable is updated to use `https` if you use SSL for the backend API domain:
-```env
-VITE_API_URL=https://face-match-api.auremoai.site:8036
-```
-
-### Option B: Google Chrome Insecure Bypass (For testing only)
-If you cannot install SSL, you can bypass this security feature in Chrome for development purposes:
-1. Navigate to: `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
-2. Enable the flag.
-3. Add your frontend site address: `http://face-match.auremoai.site:8036`
-4. Relaunch Chrome.
 
 ---
 
