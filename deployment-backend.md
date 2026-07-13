@@ -1,6 +1,8 @@
 # AI KYC Liveness Detection & Face Verification — Backend Deployment Guide
 
-This document describes the backend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the secure API domain **https://face-match-api.auremoai.site:8036**.
+This document describes the backend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the secure API domain **https://face-match-api.auremoai.site** (standard port 443).
+
+To avoid port conflicts on your server (since port 8000 is already in use), the local FastAPI server will run on port **8037** and Nginx will reverse proxy port 443 traffic to it.
 
 ---
 
@@ -81,15 +83,15 @@ Add the following configurations:
 # Directory for storing sqlite database and images
 DATA_DIR=/var/www/html/face-match/data
 
-# Allowed frontend origin (using HTTPS on port 8036)
-ALLOWED_ORIGINS=https://face-match.auremoai.site:8036
+# Allowed frontend origin (using standard HTTPS port)
+ALLOWED_ORIGINS=https://face-match.auremoai.site
 ```
 
 ---
 
 ## 5. Systemd Service Setup
 
-Create a systemd unit file to handle the automatic starting and restarting of the FastAPI backend application on port **8000** locally.
+Create a systemd unit file to handle the automatic starting and restarting of the FastAPI backend application on local port **8037** (preventing port 8000 conflicts).
 
 ```bash
 sudo nano /etc/systemd/system/face-match-backend.service
@@ -108,7 +110,7 @@ Group=www-data
 WorkingDirectory=/var/www/html/face-match
 EnvironmentFile=/var/www/html/face-match/.env
 Environment="PATH=/var/www/html/face-match/.venv/bin"
-ExecStart=/var/www/html/face-match/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecStart=/var/www/html/face-match/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8037 --workers 2
 
 [Install]
 WantedBy=multi-user.target
@@ -137,7 +139,7 @@ sudo certbot certonly --nginx -d face-match-api.auremoai.site
 
 ## 7. Nginx Server Configuration (HTTPS API Domain)
 
-Create an Nginx configuration file to listen on port **8036** with SSL enabled for the domain **face-match-api.auremoai.site** and proxy it to the local port **8000**.
+Create an Nginx configuration file to listen on port **443** (SSL) and port **80** (HTTP redirect) for the domain **face-match-api.auremoai.site** and proxy it to the local port **8037**.
 
 ### A. Create configuration file
 ```bash
@@ -148,7 +150,15 @@ Paste the following server block config (make sure to replace the SSL certificat
 
 ```nginx
 server {
-    listen 8036 ssl;
+    listen 80;
+    server_name face-match-api.auremoai.site;
+    
+    # Redirect all HTTP requests to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
     server_name face-match-api.auremoai.site;
 
     # SSL Certificates (obtained via Certbot)
@@ -163,9 +173,9 @@ server {
     # Set maximum upload size (vital for image submissions)
     client_max_body_size 20M;
 
-    # Route all requests directly to FastAPI backend running on local port 8000
+    # Route all requests directly to FastAPI backend running on local port 8037
     location / {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8037;
         proxy_http_version 1.1;
 
         # WebSocket and connection headers
@@ -181,7 +191,7 @@ server {
 
         # Handle preflight CORS requests
         if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' 'https://face-match.auremoai.site:8036' always;
+            add_header 'Access-Control-Allow-Origin' 'https://face-match.auremoai.site' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, DELETE, PUT' always;
             add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
             add_header 'Access-Control-Max-Age' 1728000 always;

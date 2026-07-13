@@ -1,6 +1,6 @@
 # AI KYC Liveness Detection & Face Verification — Frontend Deployment Guide
 
-This document describes the frontend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the secure domain **https://face-match.auremoai.site:8036**.
+This document describes the frontend deployment process on your Ubuntu/Debian server at IP **72.62.229.51** for the secure domain **https://face-match.auremoai.site** (standard port 443).
 
 ---
 
@@ -37,10 +37,10 @@ Create a production `.env` file:
 nano /var/www/html/face-match/frontend/.env
 ```
 
-Paste the following configurations. **Note that we explicitly point to the secure HTTPS backend API subdomain on port 8036**:
+Paste the following configurations. **Note that we point to the secure HTTPS backend API subdomain on standard port 443 (no port suffix)**:
 ```env
-# URL of the backend FastAPI service (using HTTPS)
-VITE_API_URL=https://face-match-api.auremoai.site:8036
+# URL of the backend FastAPI service (using HTTPS on port 443)
+VITE_API_URL=https://face-match-api.auremoai.site
 
 # Timeout for API requests (15 seconds)
 VITE_API_TIMEOUT=15000
@@ -82,7 +82,7 @@ sudo certbot certonly --nginx -d face-match.auremoai.site
 
 ## 6. Nginx Server Configuration (HTTPS Frontend Domain)
 
-Create an Nginx configuration file to listen on port **8036** with SSL enabled for the domain **face-match.auremoai.site** and serve the static files.
+Create an Nginx configuration file to listen on port **443** (SSL) and port **80** (HTTP redirect) for the domain **face-match.auremoai.site** and serve the static files.
 
 ### A. Create configuration file
 ```bash
@@ -93,7 +93,15 @@ Paste the following server block configuration (make sure to replace the SSL cer
 
 ```nginx
 server {
-    listen 8036 ssl;
+    listen 80;
+    server_name face-match.auremoai.site;
+
+    # Redirect all HTTP traffic to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
     server_name face-match.auremoai.site;
 
     # SSL Certificates (obtained via Certbot)
