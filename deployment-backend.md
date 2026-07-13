@@ -112,8 +112,10 @@ After=network.target
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/html/face-match
-EnvironmentFile=/var/www/html/face-match/.env
 Environment="PATH=/var/www/html/face-match/.venv/bin"
+Environment="DATA_DIR=/var/www/html/face-match/data"
+Environment="INSIGHTFACE_HOME=/var/www/html/face-match/data/.insightface"
+Environment="ALLOWED_ORIGINS=https://face-match.auremoai.site"
 ExecStart=/var/www/html/face-match/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8037 --workers 2
 TimeoutStartSec=300
 
