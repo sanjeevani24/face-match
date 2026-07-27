@@ -123,3 +123,93 @@ export async function getLogs(limit = 100) {
   const { data } = await api.get("/logs", { params: { limit } });
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Video-call verification (POST /call/sessions + /call/join/*).
+// Creates a paired officer/customer link for a live video-based verification,
+// as opposed to the in-browser liveness-session flow above.
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a call session for a given applicant.
+ *
+ * NOTE: /call/sessions takes JSON, not a file upload — aadhaar_path is a
+ * path to an image that must already exist on the BACKEND's filesystem
+ * (LiveCallSession reads it with cv2.imread at capture-start time, not
+ * at session-creation time). There's no multipart upload step here; if
+ * you need to verify against a browser-uploaded image, that image has
+ * to land on the backend's disk first through some other endpoint.
+ *
+ * @param {string} applicantId
+ * @param {string} aadhaarPath - path on the backend's filesystem
+ * @returns {Promise<object>} { room_id, officer_join_url, customer_join_url }
+ */
+export async function createCallSession(applicantId, aadhaarPath) {
+  const { data } = await api.post("/call/sessions", {
+    applicant_id: applicantId,
+    aadhaar_path: aadhaarPath,
+  });
+  return data;
+}
+
+/**
+ * Validate a join link and fetch the room/token details needed to start
+ * the Daily call frame. Mirrors what CustomerCall.jsx currently does with
+ * a raw fetch to /call/join/{roomId}.
+ * @param {string} roomId
+ * @param {string} linkToken
+ * @returns {Promise<object>} { room_url, meeting_token, ... }
+ */
+export async function getCallJoinInfo(roomId, linkToken) {
+  const { data } = await api.get(`/call/join/${roomId}`, {
+    params: { link_token: linkToken },
+  });
+  return data;
+}
+
+/**
+ * Mark a join link as consumed once the call is actually joined, so the
+ * link can't be reused. Fire only after "joined-meeting", not before —
+ * a page refresh before that point shouldn't burn the customer's link.
+ * @param {string} roomId
+ */
+export async function consumeCallLink(roomId) {
+  try {
+    await api.post(`/call/join/${roomId}/consume`);
+  } catch {
+    // Non-fatal — matches the previous fetch-based behavior.
+  }
+}
+
+/**
+ * Officer-side: begin frame capture/verification for an in-progress call.
+ * @param {string} roomId
+ */
+export async function startCallCapture(roomId) {
+  const { data } = await api.post(`/call/sessions/${roomId}/start`);
+  return data;
+}
+
+/**
+ * Officer-side: stop capture and finalize the verification for this call.
+ * @param {string} roomId
+ */
+export async function stopCallCapture(roomId) {
+  const { data } = await api.post(`/call/sessions/${roomId}/stop`);
+  return data;
+}
+
+/**
+ * Officer-side: poll live capture/verification status while capture is
+ * running. Call on an interval — see OfficerCall.jsx.
+ * @param {string} roomId
+ */
+export async function getCallSessionStatus(roomId) {
+  const { data } = await api.get(`/call/sessions/${roomId}/status`);
+  return data;
+}
+
+export async function getApplicant(applicantId) {
+  const { data } = await api.get(`/applicants/${applicantId}`);
+  return data;
+}

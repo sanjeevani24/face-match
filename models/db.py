@@ -24,4 +24,5 @@ def get_db():
 def init_db():
     from models.verification_record import VerificationRecord  # noqa: F401
     from models.call_session import CallSession  # noqa: F401
+    from models.applicants import Applicant  # noqa: F401
     Base.metadata.create_all(bind=engine)

@@ -23,19 +23,13 @@ class VerificationAgent:
 
         return "Low"
 
-    def verify(self, aadhaar_face, live_face, margin = 0.05):
+    def verify(self, aadhaar_face, live_face, margin=0.05):
 
-        aadhaar_embedding = self.embedding.extract(
-            aadhaar_face
-        )
-
-        live_embedding = self.embedding.extract(
-            live_face
-        )
+        aadhaar_embedding = self.embedding.extract(aadhaar_face)
+        live_embedding = self.embedding.extract(live_face)
 
         similarity = SimilarityService.cosine_similarity(
-            aadhaar_embedding,
-            live_embedding
+            aadhaar_embedding, live_embedding
         )
 
         threshold = 0.55
@@ -48,9 +42,10 @@ class VerificationAgent:
             decision = "review"
 
         return {
-            "verified": similarity >= threshold,
+            "decision": decision,
+            "verified": decision == "pass",
             "similarity": round(similarity, 4),
             "threshold": threshold,
             "confidence": self.get_confidence(similarity),
-            "decision": decision
+            "embedding": live_embedding.tolist(),   # <-- new
         }

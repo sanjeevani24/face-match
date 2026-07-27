@@ -25,3 +25,5 @@ class VerificationRecord(Base):
     spoof_max_confidence = Column(Float, nullable=True)
 
     challenge_timings = Column(String, nullable=True)
+
+    applicant_id = Column(String, nullable=True)

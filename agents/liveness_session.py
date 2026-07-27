@@ -12,6 +12,7 @@ from services.challenge_service import ChallengeService
 from agents.verification_agent import VerificationAgent
 from services.capture_service import CaptureService
 from services.record_service import save_verification_record
+from services.applicant_service import save_applicant
 from agents.antispoof_agent import AntiSpoofAgent
 
 class LivenessSession:
@@ -181,6 +182,16 @@ class LivenessSession:
 
         self.verification_done = True
 
+        applicant_id = None
+        if self.verification_result.get("decision") in ("pass", "review"):
+            applicant_id = save_applicant(
+                image_path=self.capture_path,
+                embedding=self.verification_result.get("embedding"),
+                similarity=self.verification_result.get("similarity"),
+            )
+            self.verification_result["applicant_id"] = applicant_id
+            print(f"[APPLICANT CREATED] {applicant_id}")
+
         duration = time.time() - self.start_time
         summary = self.spoof_summary()
         save_verification_record(
@@ -191,6 +202,7 @@ class LivenessSession:
             confidence=self.verification_result.get("confidence"),
             duration_seconds=round(duration, 2),
             challenge_timings=json.dumps(self.challenge_timings),
+            applicant_id=applicant_id, 
             **summary,
         )
 

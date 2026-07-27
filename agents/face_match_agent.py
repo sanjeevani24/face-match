@@ -33,9 +33,8 @@ class FaceMatchAgent:
         # return embedding
 
     def compare_faces(self, cropped_aadhar, selfie_image):
-        
-        emb1 = self.get_embedding(cropped_aadhar)       
-        
+
+        emb1 = self.get_embedding(cropped_aadhar)
         emb2 = self.get_embedding(selfie_image)
 
         similarity = np.dot(
@@ -43,42 +42,37 @@ class FaceMatchAgent:
             emb2 / np.linalg.norm(emb2)
         )
 
-        return float(similarity)
+        return float(similarity), emb2   # <-- now returns the embedding too
+
 
     def verify_face(self, aadhaar_image, selfie_image):
 
-        cropped_aadhaar = self.crop_agent.crop_face(
-            aadhaar_image
-        )
+        cropped_aadhaar = self.crop_agent.crop_face(aadhaar_image)
 
-        liveness = self.antispoof_agent.verify(
-            selfie_image
-        )
+        liveness = self.antispoof_agent.verify(selfie_image)
 
         if not liveness["is_live"]:
-
             return {
                 "status": "REJECTED",
                 "reason": "Spoof detected",
                 "liveness": liveness
             }
 
-        similarity = self.compare_faces(
+        similarity, selfie_embedding = self.compare_faces(   # <-- unpack both
             cropped_aadhaar,
             selfie_image
         )
 
         if similarity > 0.60:
             status = "MATCH"
-
         elif similarity > 0.50:
             status = "REVIEW"
-
         else:
             status = "NO_MATCH"
 
         return {
             "status": status,
             "similarity_score": round(similarity, 3),
-            "liveness": liveness
+            "liveness": liveness,
+            "embedding": selfie_embedding.tolist(),   # <-- new
         }

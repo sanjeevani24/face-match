@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, ScanFace, History as HistoryIcon, ShieldCheck, UserCheck, FileText } from "lucide-react";
+import { LayoutDashboard, ScanFace, History as HistoryIcon, ShieldCheck, UserCheck, FileText, PhoneCall } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/verification", label: "Verification", icon: ScanFace },
   { to: "/face-match", label: "Face Match Check", icon: UserCheck },
+  { to: "/verification", label: "Liveness Verification", icon: ScanFace },
+  { to: "/call-test", label: "Call Verification", icon: PhoneCall },
   { to: "/history", label: "History", icon: HistoryIcon },
   { to: "/logs", label: "Logs", icon: FileText },
 ];

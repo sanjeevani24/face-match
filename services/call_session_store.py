@@ -6,20 +6,20 @@ from models.call_session import CallSession
 
 def create_call_session(
     room_id: str,
+    room_url: str,
     applicant_id: str,
-    officer_token: str,
-    customer_token: str,
-    customer_jti: str,
+    officer_meeting_token: str,
+    customer_link_token: str,
     aadhaar_path: str,
 ) -> None:
     db = SessionLocal()
     try:
         db.add(CallSession(
             room_id=room_id,
+            room_url=room_url,
             applicant_id=applicant_id,
-            officer_token=officer_token,
-            customer_token=customer_token,
-            customer_jti=customer_jti,
+            officer_meeting_token=officer_meeting_token,
+            customer_link_token=customer_link_token,
             aadhaar_path=aadhaar_path,
         ))
         db.commit()

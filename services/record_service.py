@@ -15,6 +15,7 @@ def save_verification_record(
     spoof_min_confidence: float | None = None,
     spoof_max_confidence: float | None = None,
     challenge_timings: str | None = None,
+    applicant_id: str | None = None, 
 ):
     db = SessionLocal()
     try:
@@ -31,6 +32,7 @@ def save_verification_record(
             spoof_min_confidence=spoof_min_confidence,
             spoof_max_confidence=spoof_max_confidence,
             challenge_timings=challenge_timings,
+            applicant_id=applicant_id, 
         )
         db.add(record)
         db.commit()

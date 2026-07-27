@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import func
 from models.db import SessionLocal
 from models.verification_record import VerificationRecord
+from services.applicant_service import get_applicant_by_id
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -86,8 +87,17 @@ def get_logs(limit: int = 100):
                 "spoof_min_confidence": r.spoof_min_confidence,
                 "spoof_max_confidence": r.spoof_max_confidence,
                 "challenge_timings": r.challenge_timings,
+                "applicant_id": r.applicant_id,
             }
             for r in records
         ]
     finally:
         db.close()
+
+
+@router.get("/applicants/{applicant_id}")
+def get_applicant(applicant_id: str):
+    result = get_applicant_by_id(applicant_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+    return result

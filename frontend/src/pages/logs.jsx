@@ -53,6 +53,7 @@ export default function Logs() {
                 <th className="pb-2 font-medium">Time</th>
                 <th className="pb-2 font-medium">Source</th>
                 <th className="pb-2 font-medium">Decision</th>
+                <th className="pb-2 font-medium">Applicant ID</th>
                 <th className="pb-2 font-medium">Similarity</th>
                 <th className="pb-2 font-medium">Duration</th>
                 <th className="pb-2 font-medium">Detail</th>
@@ -101,6 +102,9 @@ export default function Logs() {
                       </td>
                       <td className="py-2.5 max-w-xs truncate text-[var(--color-ink-faint)]" title={log.error_message || ""}>
                         {log.error_message || "—"}
+                      </td>
+                      <td className="py-2.5 font-mono text-xs text-[var(--color-ink-soft)]">
+                        {log.applicant_id || "—"}
                       </td>
                     </tr>
 
