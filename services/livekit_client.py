@@ -69,6 +69,7 @@ def create_room(applicant_id: str, exp_seconds: int = 3600) -> dict:
     Rooms auto-create on first join, but creating explicitly lets us set
     empty_timeout -- LiveKit's rough equivalent of Daily's room `exp`.
     """
+    applicant_id = applicant_id.strip()
     room_name = f"ekyc-{applicant_id}-{uuid.uuid4().hex[:8]}"
 
     async def _create():

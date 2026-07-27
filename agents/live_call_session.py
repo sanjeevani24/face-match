@@ -1,9 +1,11 @@
 import os
+import json
 import time
 import uuid
 from typing import Optional
 
 import cv2
+import numpy as np
 
 from services.landmark_service import LandmarkService
 from services.blink_service import BlinkService
@@ -13,17 +15,16 @@ from services.similarity_service import SimilarityService
 from services.rolling_buffer import RollingBuffer, PoseEarSample
 from agents.antispoof_agent import AntiSpoofAgent
 from services.record_service import save_verification_record
+from services.applicant_service import get_applicant_by_id   # <-- new
 
-FACE_MATCH_THRESHOLD = 0.55  # matches VerificationAgent's threshold
-FACE_MATCH_MARGIN = 0.05     # matches VerificationAgent's margin -> review band is [0.50, 0.55)
-CONSECUTIVE_LOW_SIMILARITY_REQUIRED = 4  # frames of low similarity before flagging (avoids motion-blur false positives)
+FACE_MATCH_THRESHOLD = 0.55
+FACE_MATCH_MARGIN = 0.05
+CONSECUTIVE_LOW_SIMILARITY_REQUIRED = 4
 CONSECUTIVE_SPOOF_REQUIRED = 3
 ROLLING_WINDOW_SECONDS = 10.0
 
 
 def _confidence_label(similarity: float) -> str:
-    """Mirrors VerificationAgent.get_confidence exactly, so labels match
-    across the one-shot and continuous verification paths."""
     if similarity >= 0.90:
         return "Very High"
     elif similarity >= 0.70:
@@ -34,7 +35,6 @@ def _confidence_label(similarity: float) -> str:
 
 
 def _frame_decision(similarity: float) -> str:
-    """Mirrors VerificationAgent's pass/review/fail split for a single reading."""
     if similarity >= FACE_MATCH_THRESHOLD:
         return "pass"
     elif similarity <= FACE_MATCH_THRESHOLD - FACE_MATCH_MARGIN:
@@ -54,12 +54,27 @@ class LiveCallSession:
         self.antispoof = AntiSpoofAgent()
         self.embedding_service = EmbeddingService()
 
-        aadhaar_img = cv2.imread(aadhaar_path)
-        if aadhaar_img is None:
-            raise ValueError(f"Unable to read Aadhaar reference image at {aadhaar_path}")
-        # Phase 1 reference embedding, computed once -- this is the anchor
-        # Phase 3.3 continuously compares against.
-        self.reference_embedding = self.embedding_service.extract(aadhaar_img)
+        # Prefer the embedding already stored against this applicant_id
+        # (computed once, during the original liveness/face-match session)
+        # over re-extracting from a file path -- this is the authoritative
+        # reference, and avoids depending on aadhaar_path pointing at a
+        # readable image on whatever machine happens to run this session.
+        applicant = get_applicant_by_id(applicant_id)
+        if applicant is not None:
+            self.reference_embedding = np.array(applicant["embedding"], dtype=np.float32)
+            self._reference_source = f"applicant_id:{applicant_id}"
+        else:
+            # Fallback for testing/manual sessions created without a real
+            # applicant record (e.g. CallSessionTest.jsx's raw-path mode) --
+            # keeps this working the old way rather than hard-failing.
+            aadhaar_img = cv2.imread(aadhaar_path)
+            if aadhaar_img is None:
+                raise ValueError(
+                    f"No applicant record found for '{applicant_id}', and "
+                    f"unable to read fallback image at {aadhaar_path}"
+                )
+            self.reference_embedding = self.embedding_service.extract(aadhaar_img)
+            self._reference_source = f"aadhaar_path:{aadhaar_path}"
 
         self.buffer = RollingBuffer(window_seconds=ROLLING_WINDOW_SECONDS)
         self.previous_blink_count = 0
@@ -77,6 +92,7 @@ class LiveCallSession:
 
         self.event_log: list[dict] = []
         self.start_time = time.time()
+        self._log_event("session_started", reference_source=self._reference_source)
 
     def _uploads_dir(self) -> str:
         d = os.path.join(os.environ.get("DATA_DIR", "."), "uploads")
@@ -102,7 +118,6 @@ class LiveCallSession:
                 os.remove(tmp_path)
 
     def process_frame(self, frame, ts: Optional[float] = None) -> dict:
-        """Call once per sampled frame (~1/sec) from the stream tap."""
         ts = ts or time.time()
         timestamp_ms = int(ts * 1000)
 
@@ -133,7 +148,6 @@ class LiveCallSession:
             blink=blink_increment,
         ))
 
-        # --- 3.4 continuous anti-spoofing (pulled up from "future work") ---
         spoof_result = self._check_spoof(frame)
         if spoof_result is not None:
             is_live = bool(spoof_result.get("is_live"))
@@ -146,17 +160,12 @@ class LiveCallSession:
                 self.spoof_flagged = True
                 self._log_event("spoof_flagged", confidence=confidence)
 
-        # --- 3.3 continuous face-match ---
         try:
             live_embedding = self.embedding_service.extract(frame)
             similarity = SimilarityService.cosine_similarity(self.reference_embedding, live_embedding)
             self.last_similarity = similarity
             frame_decision = _frame_decision(similarity)
 
-            # Only "fail"-grade frames (below threshold - margin) count toward
-            # the mismatch streak; "review"-band frames don't reset OR advance
-            # it, so a run of borderline readings doesn't silently clear a
-            # building streak the way a full reset-on-any-non-fail would.
             if frame_decision == "fail":
                 self.consecutive_low_similarity += 1
             elif frame_decision == "pass":
@@ -167,14 +176,11 @@ class LiveCallSession:
                 self._log_event("identity_mismatch_flagged", similarity=round(similarity, 4))
 
         except Exception as exc:
-            # MediaPipe found a face but InsightFace couldn't embed it
-            # (angle/blur/occlusion) -- skip, don't count as a mismatch.
             self._log_event("embedding_skip", error=str(exc))
 
         return self.status(face_detected=True)
 
     def status(self, face_detected: bool) -> dict:
-        """What the officer's dashboard polls/subscribes to."""
         return {
             "room_id": self.room_id,
             "face_detected": face_detected,
@@ -186,8 +192,6 @@ class LiveCallSession:
         }
 
     def spoof_summary(self) -> dict:
-        """Mirrors LivenessSession.spoof_summary() exactly, so audit
-        records look the same shape regardless of which flow produced them."""
         if not self.spoof_confidences:
             return {
                 "spoof_checks_count": 0,
@@ -204,7 +208,6 @@ class LiveCallSession:
         }
 
     def finalize(self, decision_override: Optional[str] = None) -> dict:
-        """Call when the officer ends the call -- writes the audit record."""
         duration = time.time() - self.start_time
         decision = decision_override or ("fail" if (self.identity_flagged or self.spoof_flagged) else "pass")
 
@@ -223,6 +226,7 @@ class LiveCallSession:
             duration_seconds=round(duration, 2),
             error_message=error_message,
             challenge_timings=None,
+            applicant_id=self.applicant_id,   # <-- new, links this call back to the applicant
             **self.spoof_summary(),
         )
         return {"decision": decision, "events": self.event_log}

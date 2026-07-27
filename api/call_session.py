@@ -71,6 +71,10 @@ class CreateSessionResponse(BaseModel):
 
 @router.post("/sessions", response_model=CreateSessionResponse)
 def create_session(req: CreateSessionRequest):
+    req.applicant_id = req.applicant_id.strip()
+
+    print(repr(req.applicant_id))
+
     room = livekit_client.create_room(req.applicant_id, exp_seconds=3600)
     room_id = room["name"]
     room_url = room["url"]  # the LiveKit server's own URL -- see livekit_client.py

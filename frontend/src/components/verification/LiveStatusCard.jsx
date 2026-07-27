@@ -1,4 +1,4 @@
-import { ShieldCheck, ShieldAlert, ScanFace, UserX, Radio } from "lucide-react";
+import { ShieldCheck, ShieldAlert, ShieldQuestion, ScanFace, UserX, Radio } from "lucide-react";
 import Card from "../common/Card.jsx";
 
 function Metric({ label, value, tone = "neutral" }) {
@@ -17,7 +17,32 @@ function Metric({ label, value, tone = "neutral" }) {
   );
 }
 
-function StatusRow({ icon: OkIcon, badIcon: BadIcon, label, flagged, okLabel = "OK", flaggedLabel = "Flagged" }) {
+// `hasData` distinguishes "no status polled yet" from "checked and came
+// back clean" -- without it, flagged={Boolean(undefined)} === false and
+// every row silently renders as a passing "OK"/"Yes" before the bot has
+// even joined, which is actively misleading rather than just empty.
+function StatusRow({
+  icon: OkIcon,
+  badIcon: BadIcon,
+  unknownIcon: UnknownIcon = ShieldQuestion,
+  label,
+  hasData,
+  flagged,
+  okLabel = "OK",
+  flaggedLabel = "Flagged",
+}) {
+  if (!hasData) {
+    return (
+      <div className="flex items-center justify-between text-sm">
+        <span className="flex items-center gap-2 text-[var(--color-ink-faint)]">
+          <UnknownIcon className="size-4 text-[var(--color-ink-faint)]" />
+          {label}
+        </span>
+        <span className="font-semibold text-[var(--color-ink-faint)]">—</span>
+      </div>
+    );
+  }
+
   const Icon = flagged ? BadIcon : OkIcon;
   return (
     <div className="flex items-center justify-between text-sm">
@@ -33,8 +58,10 @@ function StatusRow({ icon: OkIcon, badIcon: BadIcon, label, flagged, okLabel = "
 }
 
 export default function LiveStatusCard({ status, framesAlive }) {
+  const hasData = Boolean(status);
+
   const similarityTone =
-    !status || status.similarity == null
+    !hasData || status.similarity == null
       ? "neutral"
       : status.identity_flagged
       ? "bad"
@@ -58,10 +85,10 @@ export default function LiveStatusCard({ status, framesAlive }) {
       <div className="grid grid-cols-2 gap-3">
         <Metric
           label="Similarity"
-          value={status?.similarity != null ? status.similarity.toFixed(3) : "—"}
+          value={hasData && status.similarity != null ? status.similarity.toFixed(3) : "—"}
           tone={similarityTone}
         />
-        <Metric label="Confidence" value={status?.confidence ?? "—"} tone={similarityTone} />
+        <Metric label="Confidence" value={(hasData && status.confidence) || "—"} tone={similarityTone} />
       </div>
 
       <div className="mt-4 flex flex-col gap-2 border-t border-[var(--color-border)] pt-4">
@@ -69,6 +96,7 @@ export default function LiveStatusCard({ status, framesAlive }) {
           icon={ScanFace}
           badIcon={UserX}
           label="Face detected"
+          hasData={hasData}
           flagged={status?.face_detected === false}
           okLabel="Yes"
           flaggedLabel="No"
@@ -77,12 +105,14 @@ export default function LiveStatusCard({ status, framesAlive }) {
           icon={ShieldCheck}
           badIcon={ShieldAlert}
           label="Identity match"
+          hasData={hasData}
           flagged={Boolean(status?.identity_flagged)}
         />
         <StatusRow
           icon={ShieldCheck}
           badIcon={ShieldAlert}
           label="Liveness / antispoof"
+          hasData={hasData}
           flagged={Boolean(status?.spoof_flagged)}
         />
       </div>
