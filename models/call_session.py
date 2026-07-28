@@ -31,6 +31,7 @@ class CallSession(Base):
     officer_meeting_token = Column(String, nullable=False)  # fine to persist, officer-only, short-lived
     customer_link_token = Column(String, nullable=False)  # OUR secret, not a Daily token
     customer_link_used = Column(Boolean, default=False, nullable=False)
+    customer_link_used_at = Column(DateTime, nullable=True)
 
     aadhaar_path = Column(String, nullable=False)
 

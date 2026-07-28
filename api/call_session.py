@@ -29,6 +29,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 from urllib.parse import urlencode
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -103,20 +104,23 @@ def create_session(req: CreateSessionRequest):
     )
 
 
+RECONNECT_WINDOW_SECONDS = 180
+
 @router.get("/join/{room_id}")
 def validate_customer_link(room_id: str, link_token: str):
     session = store.get_call_session(room_id)
     if not session:
         raise HTTPException(404, "Unknown session")
-    if session.customer_link_used:
-        raise HTTPException(410, "This link has already been used")
     if link_token != session.customer_link_token:
         raise HTTPException(401, "Invalid link")
 
-    # Gate passed -- NOW mint the real LiveKit token, short-lived, right
-    # before the frontend actually needs it to join.
+    if session.customer_link_used_at is not None:
+        elapsed = (datetime.now(timezone.utc) - session.customer_link_used_at).total_seconds()
+        if elapsed > RECONNECT_WINDOW_SECONDS:
+            raise HTTPException(410, "This link has expired and can no longer be used to reconnect")
+
     customer_token = livekit_client.create_meeting_token(
-        room_id, user_name=_customer_identity(room_id), is_owner=False, exp_seconds=1200
+        room_id, user_name=_customer_identity(room_id), is_owner=False, exp_seconds=3600
     )
 
     return {
@@ -150,6 +154,7 @@ def _consume_frames(room_id: str, runtime: "_Runtime"):
             ts, frame = runtime.bot.frame_queue.get(timeout=0.5)
         except Exception:
             continue
+        print(f"[CALL {room_id}] dequeued frame, shape={frame.shape}")   #<----- debug print line
         runtime.live_session.process_frame(frame, ts)
 
 

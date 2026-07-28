@@ -77,11 +77,12 @@ class LiveKitCallBot:
 
         @self._room.on("track_subscribed")
         def on_track_subscribed(track, publication, participant):
+            print(f"[BOT] track_subscribed from participant.identity={participant.identity!r}, expecting={self.customer_identity!r}")   # <-- add this    
             if participant.identity != self.customer_identity:
                 return
             if track.kind != rtc.TrackKind.KIND_VIDEO:
                 return
-            video_stream = rtc.VideoStream(track)
+            video_stream = rtc.VideoStream(track, format=rtc.VideoBufferType.RGB24)
             asyncio.ensure_future(self._consume_stream(video_stream))
 
         try:
@@ -104,6 +105,7 @@ class LiveKitCallBot:
         await self._room.disconnect()
 
     async def _consume_stream(self, video_stream: "rtc.VideoStream"):
+        print(f"[BOT] subscribed to customer video stream")   # <-- add this
         async for event in video_stream:
             now = time.monotonic()
             if now - self._last_sample_at < self._sample_interval:
@@ -111,10 +113,14 @@ class LiveKitCallBot:
             self._last_sample_at = now
 
             frame = event.frame
-            # See CAVEAT above re: pixel format -- assumes RGB24-equivalent
-            # 3-channel layout matching daily_bot.py's np.frombuffer/reshape.
-            rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(frame.height, frame.width, 3)
-            bgr = rgb[:, :, ::-1]  # cv2/MediaPipe/InsightFace all expect BGR
+            try:
+                rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(frame.height, frame.width, 3)
+            except ValueError as exc:
+                print(f"[BOT] frame reshape failed: {exc} (data size={len(frame.data)}, {frame.width}x{frame.height})")
+                continue
+            bgr = rgb[:, :, ::-1]
+
+            print(f"[BOT] sampled frame {frame.width}x{frame.height}")
 
             if self.frame_queue.full():
                 try:

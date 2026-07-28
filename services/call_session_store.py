@@ -36,11 +36,15 @@ def get_call_session(room_id: str) -> CallSession | None:
 
 
 def mark_link_used(room_id: str) -> None:
+    """Sets the first-join timestamp ONCE. Subsequent reconnects within
+    the grace window call this again, but it's a no-op after the first
+    time — the 3-minute clock is fixed from the original join, not
+    renewed on every reconnect."""
     db = SessionLocal()
     try:
         session = db.query(CallSession).filter(CallSession.room_id == room_id).first()
-        if session:
-            session.customer_link_used = True
+        if session and session.customer_link_used_at is None:
+            session.customer_link_used_at = datetime.now(timezone.utc)
             db.commit()
     finally:
         db.close()
