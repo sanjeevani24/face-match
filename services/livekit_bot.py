@@ -1,33 +1,3 @@
-"""
-services/livekit_bot.py
-
-Self-hosted LiveKit replacement for services/daily_bot.py. Same job:
-join as a silent, non-publishing bot and receive raw video frames
-in-process, no RTMP/media server in between.
-
-Architectural difference from daily_bot.py worth knowing: daily-python
-is callback-based and can be driven from a plain thread. livekit-python
-(the `livekit.rtc` package) is asyncio-native -- Room, VideoStream, and
-track events all expect a running event loop. Since the rest of this
-FastAPI app is sync (call_session.py's routes are `def`, not `async
-def`), this module runs its OWN asyncio event loop on a dedicated
-background thread, and bridges out to the same thread-safe
-queue.Queue frame_queue that _consume_frames() in call_session.py
-already expects -- so call_session.py's consumer loop doesn't change
-at all, only how the queue gets filled.
-
-CAVEAT: I've confirmed livekit.rtc exposes VideoStream(track) with
-`async for frame_event in stream: ...` and frame_event.frame giving a
-VideoFrame with .data/.width/.height, but I have not verified the
-exact default pixel format against your installed package version. If
-frames look scrambled (green tint, half-image), check
-`rtc.VideoBufferType` and pass `format=rtc.VideoBufferType.RGB24`
-explicitly to VideoStream() -- see https://docs.livekit.io/reference/python/
-and adjust the numpy reshape below to match.
-
-pip install livekit
-"""
-
 import asyncio
 import queue
 import threading
@@ -36,7 +6,7 @@ from typing import Optional
 
 import numpy as np
 from livekit import rtc
-
+from services import livekit_client
 
 class LiveKitCallBot:
     """One instance per active call room. frame_queue is a plain
@@ -47,10 +17,11 @@ class LiveKitCallBot:
         self.livekit_url = livekit_url
         self.bot_token = bot_token
         self.customer_identity = customer_identity
-
+        
         self.frame_queue: "queue.Queue[tuple[float, np.ndarray]]" = queue.Queue(maxsize=50)
         self._joined_event = threading.Event()
         self._join_error: Optional[str] = None
+        self._egress_id: Optional[str] = None
 
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._loop_thread: Optional[threading.Thread] = None
@@ -135,16 +106,28 @@ class LiveKitCallBot:
             raise RuntimeError(f"LiveKitCallBot failed to join: {self._join_error}")
         return ok
 
-    def start_recording(self):
-        """No-op placeholder -- self-hosted LiveKit recording needs a
-        separate Egress service (https://docs.livekit.io/home/egress/overview/),
-        which isn't part of the free single-binary --dev setup. Skipping
-        it here since call_session.py only uses this for the optional
-        enable_recording flag; wire up Egress later if you need it."""
-        pass
+    def start_recording(self, room_name: str):
+        """Starts a room-composite recording via LiveKit Egress. Requires
+        the egress + redis services running (see docker-compose.yml) --
+        if Egress isn't up, this will raise and get logged, not crash
+        the call itself."""
+        output_path = f"/out/{room_name}.mp4"
+        try:
+            self._egress_id = livekit_client.start_room_recording(room_name, output_path)
+            print(f"[BOT] recording started, egress_id={self._egress_id}, output={output_path}")
+        except Exception as exc:
+            print(f"[BOT] failed to start recording: {exc}")
 
     def stop_recording(self):
-        pass
+        if not self._egress_id:
+            return
+        try:
+            livekit_client.stop_room_recording(self._egress_id)
+            print(f"[BOT] recording stopped, egress_id={self._egress_id}")
+        except Exception as exc:
+            print(f"[BOT] failed to stop recording: {exc}")
+        finally:
+            self._egress_id = None
 
     def leave(self):
         self._stop_flag.set()

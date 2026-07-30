@@ -136,3 +136,40 @@ def create_meeting_token(
         .with_ttl(timedelta(seconds=exp_seconds))
     )
     return token.to_jwt()
+
+def start_room_recording(room_name: str, output_path: str) -> str:
+    async def _start():
+        lkapi = api.LiveKitAPI(_http_url(), api_key=_api_key(), api_secret=_api_secret())
+        try:
+            req = api.RoomCompositeEgressRequest(
+                room_name=room_name,
+                layout="speaker",
+                audio_only=False,   # <-- explicit: must include audio
+                video_only=False,   # <-- explicit: must include video
+                file_outputs=[
+                    api.EncodedFileOutput(
+                        file_type=api.EncodedFileType.MP4,
+                        filepath=output_path,
+                    )
+                ],
+            )
+            return await lkapi.egress.start_room_composite_egress(req)
+        finally:
+            await lkapi.aclose()
+
+    res = asyncio.run(_start())
+    return res.egress_id
+
+
+def stop_room_recording(egress_id: str) -> None:
+    """Stops a recording started by start_room_recording. Fire-and-forget
+    like delete_room -- caller shouldn't block or crash if this fails
+    (e.g. recording already auto-stopped when the room emptied)."""
+    async def _stop():
+        lkapi = api.LiveKitAPI(_http_url(), api_key=_api_key(), api_secret=_api_secret())
+        try:
+            await lkapi.egress.stop_egress(api.StopEgressRequest(egress_id=egress_id))
+        finally:
+            await lkapi.aclose()
+
+    asyncio.run(_stop())

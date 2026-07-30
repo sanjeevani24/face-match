@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { PhoneCall, PlayCircle, StopCircle } from "lucide-react";
+import { PhoneCall, PlayCircle, StopCircle, Circle, Square } from "lucide-react";
 import Card from "../components/common/Card.jsx";
 import Button from "../components/common/Button.jsx";
 import LiveStatusCard from "../components/verification/LiveStatusCard.jsx";
@@ -9,6 +9,8 @@ import {
   startCallCapture,
   stopCallCapture,
   getCallSessionStatus,
+  startRecording,
+  stopRecording,
 } from "../services/verificationApi.js";
 
 function useQueryParams() {
@@ -30,6 +32,9 @@ export default function OfficerCall() {
   const [lastUpdateAt, setLastUpdateAt] = useState(null);
   const [error, setError] = useState(null);
 
+  const [recording, setRecording] = useState(false);
+  const [togglingRecording, setTogglingRecording] = useState(false);
+
   async function startCapture() {
     setError(null);
     setStarting(true);
@@ -48,12 +53,30 @@ export default function OfficerCall() {
     try {
       await stopCallCapture(roomId);
       setCaptureStarted(false);
+      // recording is independent of capture now — don't touch it here
     } catch (e) {
       setError(`Could not stop capture: ${e?.response?.data?.detail || e.message}`);
     }
   }
 
-  // Poll live status once capture has started.
+  async function toggleRecording() {
+    setError(null);
+    setTogglingRecording(true);
+    try {
+      if (recording) {
+        await stopRecording(roomId);
+        setRecording(false);
+      } else {
+        await startRecording(roomId);
+        setRecording(true);
+      }
+    } catch (e) {
+      setError(`Could not toggle recording: ${e?.response?.data?.detail || e.message}`);
+    } finally {
+      setTogglingRecording(false);
+    }
+  }
+
   useEffect(() => {
     if (!captureStarted || !roomId) return undefined;
     const interval = setInterval(async () => {
@@ -95,6 +118,12 @@ export default function OfficerCall() {
               className={`size-4 ${joined ? "text-[var(--color-brand-green)]" : "text-[var(--color-ink-faint)]"}`}
             />
             {joined ? "Connected" : "Connecting…"}
+            {recording && (
+              <span className="flex items-center gap-1 text-[var(--color-danger)]">
+                <Circle className="size-2 animate-pulse fill-current" />
+                REC
+              </span>
+            )}
           </span>
         }
       >
@@ -125,6 +154,17 @@ export default function OfficerCall() {
               Stop &amp; finalize
             </Button>
           )}
+
+          <Button
+            variant={recording ? "outline" : "default"}
+            icon={recording ? Square : Circle}
+            onClick={toggleRecording}
+            loading={togglingRecording}
+            disabled={!joined || togglingRecording}
+          >
+            {recording ? "Stop recording" : "Start recording"}
+          </Button>
+
           {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
         </div>
       </Card>

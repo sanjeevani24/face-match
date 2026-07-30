@@ -213,3 +213,13 @@ export async function getApplicant(applicantId) {
   const { data } = await api.get(`/applicants/${applicantId}`);
   return data;
 }
+
+export async function startRecording(roomId) {
+  const { data } = await api.post(`/call/sessions/${roomId}/recording/start`);
+  return data;
+}
+
+export async function stopRecording(roomId) {
+  const { data } = await api.post(`/call/sessions/${roomId}/recording/stop`);
+  return data;
+}

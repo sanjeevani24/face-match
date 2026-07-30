@@ -1,0 +1,31 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  livekit:
+    image: livekit/livekit-server
+    command: --config /livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    volumes:
+      - ./livekit.yaml:/livekit.yaml
+    depends_on:
+      - redis
+
+  egress:
+    image: livekit/egress
+    environment:
+      - EGRESS_CONFIG_FILE=/egress-config.yaml
+    volumes:
+      - ./egress-config.yaml:/egress-config.yaml
+      - ./recordings:/out
+    depends_on:
+      - redis
+      - livekit
+    # Egress uses Chrome headless internally for room-composite recording,
+    # which needs more resources than the other two containers — if it
+    # crashes/OOMs, that's the first thing to check.

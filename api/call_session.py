@@ -1,27 +1,3 @@
-"""
-api/call_session.py (self-hosted LiveKit version)
-
-Officer-facing endpoints for a call-based verification session.
-Swapped from Daily to a self-hosted LiveKit server -- see
-services/livekit_client.py and services/livekit_bot.py, and
-LIVEKIT_SETUP.md for how to run the server itself.
-
-Flow, and why the customer route has two steps:
-  1. POST /sessions -> creates the LiveKit room + officer token
-     immediately, but the customer link only carries OUR OWN opaque
-     secret (customer_link_token), not a LiveKit token.
-  2. GET /join/{room_id}?link_token=... -> validates OUR secret, and
-     only THEN mints a real LiveKit access token for the customer,
-     lazily, right before they actually need it. This keeps the
-     token's window tight and means our gating never depended on
-     being able to decode LiveKit's own token format.
-
-Runtime objects for an ACTIVE call (LiveKitCallBot, its frame queue,
-the consumer thread) live in the in-memory _runtime registry -- not
-the DB -- since they can't be serialized and a restart drops them
-regardless.
-"""
-
 import os
 import threading
 import time
@@ -104,6 +80,8 @@ def create_session(req: CreateSessionRequest):
     )
 
 
+from datetime import datetime, timezone
+
 RECONNECT_WINDOW_SECONDS = 180
 
 @router.get("/join/{room_id}")
@@ -115,12 +93,17 @@ def validate_customer_link(room_id: str, link_token: str):
         raise HTTPException(401, "Invalid link")
 
     if session.customer_link_used_at is not None:
-        elapsed = (datetime.now(timezone.utc) - session.customer_link_used_at).total_seconds()
+        # SQLite drops timezone info on round-trip (it has no native
+        # tz-aware datetime type), so customer_link_used_at always
+        # comes back naive regardless of how it was written. Compare
+        # using naive UTC on both sides rather than fighting SQLite.
+        now_naive_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        elapsed = (now_naive_utc - session.customer_link_used_at).total_seconds()
         if elapsed > RECONNECT_WINDOW_SECONDS:
             raise HTTPException(410, "This link has expired and can no longer be used to reconnect")
 
     customer_token = livekit_client.create_meeting_token(
-        room_id, user_name=_customer_identity(room_id), is_owner=False, exp_seconds=3600
+        room_id, user_name=_customer_identity(room_id), is_owner=False, exp_seconds=7200
     )
 
     return {
@@ -179,7 +162,7 @@ def start_call_capture(room_id: str, enable_recording: bool = False):
     if enable_recording:
         # See LiveKitCallBot.start_recording's docstring -- no-op until
         # Egress is wired up; self-hosted --dev mode doesn't include it.
-        bot.start_recording()
+        bot.start_recording(room_id)
 
     live_session = LiveCallSession(room_id, session.applicant_id, session.aadhaar_path)
 
@@ -236,3 +219,26 @@ def stop_call_capture(room_id: str):
     # media flush.
 
     return {"stopped": True, "result": final}
+
+# separate from _runtime — recording has its own lifecycle now
+_egress_sessions: dict[str, str] = {}   # room_id -> egress_id
+
+@router.post("/sessions/{room_id}/recording/start")
+def start_recording(room_id: str):
+    if room_id in _egress_sessions:
+        raise HTTPException(400, "Recording already in progress for this room")
+    output_path = f"/out/{room_id}.mp4"
+    try:
+        egress_id = livekit_client.start_room_recording(room_id, output_path)
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to start recording: {exc}")
+    _egress_sessions[room_id] = egress_id
+    return {"recording": True, "egress_id": egress_id}
+
+@router.post("/sessions/{room_id}/recording/stop")
+def stop_recording(room_id: str):
+    egress_id = _egress_sessions.pop(room_id, None)
+    if not egress_id:
+        raise HTTPException(404, "No active recording for this room")
+    livekit_client.stop_room_recording(egress_id)
+    return {"recording": False}
