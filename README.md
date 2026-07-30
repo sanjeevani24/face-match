@@ -6,8 +6,7 @@ A full-stack, AI-powered eKYC verification system that performs passive liveness
 
 The system guides the user through randomized liveness challenges via a live browser camera feed, captures the highest-quality live frame, generates facial embeddings using InsightFace, and compares them against the Aadhaar photograph for identity verification — end to end, from a React frontend through to a FastAPI backend.
 
-#Deployed Website Link
-https://face-match.auremoai.site/
+## Deployed Website Link: https://face-match.auremoai.site/
 
 ## Features
 
