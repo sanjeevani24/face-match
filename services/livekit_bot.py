@@ -9,9 +9,6 @@ from livekit import rtc
 from services import livekit_client
 
 class LiveKitCallBot:
-    """One instance per active call room. frame_queue is a plain
-    thread-safe queue.Queue -- the asyncio loop below runs on its own
-    thread and pushes into it, same shape as DailyCallBot."""
 
     def __init__(self, livekit_url: str, bot_token: str, customer_identity: str):
         self.livekit_url = livekit_url
@@ -32,9 +29,6 @@ class LiveKitCallBot:
         self._sample_interval = 0.75  # ~1/sec, matches daily_bot.py
 
     def join(self):
-        """Starts the background asyncio loop and connects. Mirrors
-        DailyCallBot.join()'s fire-and-forget signature -- use
-        wait_until_joined() afterward, same as the Daily version."""
         self._loop_thread = threading.Thread(target=self._run_loop, daemon=True)
         self._loop_thread.start()
 
@@ -107,14 +101,11 @@ class LiveKitCallBot:
         return ok
 
     def start_recording(self, room_name: str):
-        """Starts a room-composite recording via LiveKit Egress. Requires
-        the egress + redis services running (see docker-compose.yml) --
-        if Egress isn't up, this will raise and get logged, not crash
-        the call itself."""
-        output_path = f"/out/{room_name}.mp4"
+        """Starts a room-composite recording, uploaded directly to S3 by Egress."""
+        output_path = f"recordings/{room_name}.mp4"   # S3 key now, not /out/...
         try:
             self._egress_id = livekit_client.start_room_recording(room_name, output_path)
-            print(f"[BOT] recording started, egress_id={self._egress_id}, output={output_path}")
+            print(f"[BOT] recording started, egress_id={self._egress_id}, s3_key={output_path}")
         except Exception as exc:
             print(f"[BOT] failed to start recording: {exc}")
 

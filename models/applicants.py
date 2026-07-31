@@ -10,9 +10,6 @@ class Applicant(Base):
     applicant_id = Column(String, unique=True, index=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    # Path to the stored live-capture frame used for this match
-    image_path = Column(String, nullable=False)
-
     # Face embedding used in the comparison, JSON-serialized (list of floats)
     embedding = Column(Text, nullable=False)
 

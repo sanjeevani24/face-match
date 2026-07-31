@@ -17,8 +17,8 @@ from agents.antispoof_agent import AntiSpoofAgent
 
 class LivenessSession:
 
-    def __init__(self, aadhaar_path):
-        self.aadhaar_path = aadhaar_path
+    def __init__(self, aadhaar_image):
+        self.aadhaar_image = aadhaar_image
         self.landmark = LandmarkService()
         self.blink = BlinkService()
         self.headpose = HeadPoseService()
@@ -162,30 +162,20 @@ class LivenessSession:
         if best_frame is None:
             raise Exception("No capture frame available.")
 
-        uploads_dir = self._uploads_dir()
-        os.makedirs(uploads_dir, exist_ok=True)
-        self.capture_path = os.path.join(
-            uploads_dir, f"live_{datetime.now():%Y%m%d_%H%M%S}.png"
-        )
-        cv2.imwrite(self.capture_path, best_frame)
-
-        aadhaar_face = cv2.imread(self.aadhaar_path)
-        if aadhaar_face is None:
+        if self.aadhaar_image is None:
             raise Exception("Unable to read Aadhaar image.")
 
         self.verification_result = self.verification_agent.verify(
-            aadhaar_face, best_frame
+            self.aadhaar_image, best_frame
         )
         self.verification_result["spoof_detected"] = False
 
         print(self.verification_result)
-
         self.verification_done = True
 
         applicant_id = None
         if self.verification_result.get("decision") in ("pass", "review"):
             applicant_id = save_applicant(
-                image_path=self.capture_path,
                 embedding=self.verification_result.get("embedding"),
                 similarity=self.verification_result.get("similarity"),
             )
@@ -202,7 +192,7 @@ class LivenessSession:
             confidence=self.verification_result.get("confidence"),
             duration_seconds=round(duration, 2),
             challenge_timings=json.dumps(self.challenge_timings),
-            applicant_id=applicant_id, 
+            applicant_id=applicant_id,
             **summary,
         )
 

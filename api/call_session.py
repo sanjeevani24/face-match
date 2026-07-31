@@ -37,8 +37,7 @@ _runtime: dict[str, _Runtime] = {}
 
 class CreateSessionRequest(BaseModel):
     applicant_id: str
-    aadhaar_path: str
-
+    aadhaar_path: Optional[str] = None
 
 class CreateSessionResponse(BaseModel):
     room_id: str

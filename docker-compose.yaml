@@ -22,7 +22,6 @@ services:
       - EGRESS_CONFIG_FILE=/egress-config.yaml
     volumes:
       - ./egress-config.yaml:/egress-config.yaml
-      - ./recordings:/out
     depends_on:
       - redis
       - livekit

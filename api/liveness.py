@@ -1,8 +1,3 @@
-"""
-api/liveness.py — replaces the old cv2.VideoCapture-based route.
-... (existing docstring unchanged) ...
-"""
-
 import time
 import uuid
 
@@ -10,22 +5,23 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
-from utils.file_utils import FileUtils
 from agents.liveness_session import LivenessSession
 from services.record_service import save_verification_record
 
-router = APIRouter(
-    prefix="/liveness",
-    tags=["Liveness Detection"])
+router = APIRouter(prefix="/liveness", tags=["Liveness Detection"])
 
 _sessions: dict[str, LivenessSession] = {}
 
 
 @router.post("/start")
-def start_liveness(aadhaar: UploadFile = File(...)):
+async def start_liveness(aadhaar: UploadFile = File(...)):
     try:
-        aadhaar_path = FileUtils.save_upload(aadhaar)
-        session = LivenessSession(aadhaar_path)
+        contents = await aadhaar.read()
+        np_bytes = np.frombuffer(contents, np.uint8)
+        aadhaar_image = cv2.imdecode(np_bytes, cv2.IMREAD_COLOR)
+        if aadhaar_image is None:
+            raise Exception("Could not decode the uploaded Aadhaar image.")
+        session = LivenessSession(aadhaar_image)
     except Exception as exc:
         save_verification_record(
             source="liveness_session",

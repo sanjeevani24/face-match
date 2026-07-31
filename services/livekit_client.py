@@ -1,24 +1,3 @@
-"""
-services/livekit_client.py
-
-Self-hosted LiveKit replacement for services/daily_client.py -- delete
-that file once this is wired in, along with the DAILY_* env vars.
-See LIVEKIT_SETUP.md for how to run the (free, self-hosted) server.
-
-Env vars:
-  LIVEKIT_URL          e.g. ws://localhost:7880  (wss://... in production)
-  LIVEKIT_API_KEY
-  LIVEKIT_API_SECRET
-
-Key difference from Daily worth knowing: Daily gives each room its own
-subdomain URL. LiveKit has ONE server URL and rooms are just names
-within it -- so "room_url" throughout this codebase now means "the
-LiveKit server's own URL", not a per-room address. Kept the field name
-anyway so call_session.py and the frontend didn't need reshaping.
-
-pip install livekit livekit-api
-"""
-
 import asyncio
 import os
 import uuid
@@ -27,7 +6,6 @@ from datetime import timedelta
 from livekit import api
 
 LIVEKIT_URL_DEFAULT = "ws://localhost:7880"
-
 
 class LiveKitError(RuntimeError):
     pass
@@ -63,12 +41,6 @@ def _http_url() -> str:
 
 
 def create_room(applicant_id: str, exp_seconds: int = 3600) -> dict:
-    """
-    Sync wrapper (matches daily_client.create_room's sync signature, so
-    call_session.py's create_session route doesn't need to become async).
-    Rooms auto-create on first join, but creating explicitly lets us set
-    empty_timeout -- LiveKit's rough equivalent of Daily's room `exp`.
-    """
     applicant_id = applicant_id.strip()
     room_name = f"ekyc-{applicant_id}-{uuid.uuid4().hex[:8]}"
 
@@ -86,8 +58,6 @@ def create_room(applicant_id: str, exp_seconds: int = 3600) -> dict:
 
 
 def delete_room(room_name: str) -> None:
-    """Fire-and-forget cleanup, same role as daily_client.delete_room --
-    optional given empty_timeout above already reclaims idle rooms."""
     async def _delete():
         lkapi = api.LiveKitAPI(_http_url(), api_key=_api_key(), api_secret=_api_secret())
         try:
@@ -108,19 +78,7 @@ def create_meeting_token(
     exp_seconds: int = 1800,
     hidden: bool = False,
 ) -> str:
-    """
-    Drop-in for daily_client.create_meeting_token. `user_name` is used
-    as the LiveKit participant *identity* (not just a display name --
-    it's how daily_bot/livekit_bot picks the customer's video track out
-    of the room, so keep call sites passing the same identity strings
-    they already do: f"officer-{room_id}", f"customer-{room_id}", etc.).
 
-    is_owner grants room_admin (mute/remove others) -- same usage as
-    the officer token in call_session.py.
-    hidden=True is for the verification bot: it should subscribe to
-    video but not appear as a visible participant to the humans on
-    the call.
-    """
     grants = api.VideoGrants(
         room_join=True,
         room=room_name,
@@ -144,12 +102,18 @@ def start_room_recording(room_name: str, output_path: str) -> str:
             req = api.RoomCompositeEgressRequest(
                 room_name=room_name,
                 layout="speaker",
-                audio_only=False,   # <-- explicit: must include audio
-                video_only=False,   # <-- explicit: must include video
+                audio_only=False,
+                video_only=False,
                 file_outputs=[
                     api.EncodedFileOutput(
                         file_type=api.EncodedFileType.MP4,
-                        filepath=output_path,
+                        filepath=output_path,   # now just an S3 key, e.g. "recordings/{room_name}.mp4"
+                        s3=api.S3Upload(
+                            bucket=os.environ["AWS_S3_BUCKET"],
+                            region=os.environ["AWS_S3_REGION"],
+                            access_key=os.environ["AWS_ACCESS_KEY_ID"],
+                            secret=os.environ["AWS_SECRET_ACCESS_KEY"],
+                        ),
                     )
                 ],
             )
@@ -162,9 +126,6 @@ def start_room_recording(room_name: str, output_path: str) -> str:
 
 
 def stop_room_recording(egress_id: str) -> None:
-    """Stops a recording started by start_room_recording. Fire-and-forget
-    like delete_room -- caller shouldn't block or crash if this fails
-    (e.g. recording already auto-stopped when the room emptied)."""
     async def _stop():
         lkapi = api.LiveKitAPI(_http_url(), api_key=_api_key(), api_secret=_api_secret())
         try:

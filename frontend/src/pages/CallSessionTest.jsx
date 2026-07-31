@@ -22,11 +22,9 @@ export default function CallSessionTest() {
     setApplicantFound(false);
     setFetchingApplicant(true);
     try {
-      const data = await getApplicant(applicantId);
-      setAadhaarPath(data.image_path);
+      await getApplicant(applicantId);   // just confirms it exists
       setApplicantFound(true);
     } catch (err) {
-      setAadhaarPath("");
       setApplicantFound(false);
       setApplicantError(
         err?.response?.status === 404
@@ -40,8 +38,12 @@ export default function CallSessionTest() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!applicantId || !aadhaarPath) {
-      setError("Applicant ID and an Aadhaar file path are both required.");
+    if (!applicantId) {
+      setError("Applicant ID is required.");
+      return;
+    }
+    if (!applicantFound && !aadhaarPath) {
+      setError("No applicant record found — provide a raw Aadhaar file path for manual testing.");
       return;
     }
     setError(null);
@@ -110,7 +112,7 @@ export default function CallSessionTest() {
             </div>
             {applicantFound && (
               <span className="text-xs text-[var(--color-brand-green)]">
-                ✓ Applicant found — Aadhaar path auto-filled below.
+                ✓ Applicant found — will use their stored embedding, no Aadhaar path needed.
               </span>
             )}
             {applicantError && (
@@ -128,8 +130,7 @@ export default function CallSessionTest() {
               className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm"
             />
             <span className="text-xs text-[var(--color-ink-faint)]">
-              Auto-filled from the applicant record when found — you can still edit it manually
-              if needed (e.g. testing with a different image).
+              Only needed for manual testing without a real applicant record.
             </span>
           </label>
 
