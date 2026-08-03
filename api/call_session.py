@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from services import livekit_client
 from services import call_session_store as store
 from services.livekit_bot import LiveKitCallBot
+from services.transcription_service import transcribe_recording
 from agents.live_call_session import LiveCallSession
 
 router = APIRouter(prefix="/call", tags=["call-session"])
@@ -241,3 +242,11 @@ def stop_recording(room_id: str):
         raise HTTPException(404, "No active recording for this room")
     livekit_client.stop_room_recording(egress_id)
     return {"recording": False}
+
+
+@router.post("/sessions/{room_id}/transcript")
+def get_transcript(room_id: str):
+    try:
+        return transcribe_recording(room_id)
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to transcribe recording: {exc}")
