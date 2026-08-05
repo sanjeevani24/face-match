@@ -1,3 +1,5 @@
+import os
+import uuid
 import cv2
 
 class CropService:
@@ -21,7 +23,9 @@ class CropService:
 
         face_crop = image[y1:y2, x1:x2]
 
-        output_path = "uploads/cropped_aadhaar_face.jpg"
+        uploads_dir = os.path.join(os.environ.get("DATA_DIR", "."), "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        output_path = os.path.join(uploads_dir, f"crop_{uuid.uuid4().hex}.jpg")
 
         cv2.imwrite(output_path, face_crop)
 

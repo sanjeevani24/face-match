@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
@@ -48,31 +49,34 @@ class FaceMatchAgent:
     def verify_face(self, aadhaar_image, selfie_image):
 
         cropped_aadhaar = self.crop_agent.crop_face(aadhaar_image)
+        try:
+            liveness = self.antispoof_agent.verify(selfie_image)
 
-        liveness = self.antispoof_agent.verify(selfie_image)
+            if not liveness["is_live"]:
+                return {
+                    "status": "REJECTED",
+                    "reason": "Spoof detected",
+                    "liveness": liveness
+                }
 
-        if not liveness["is_live"]:
+            similarity, selfie_embedding = self.compare_faces(   # <-- unpack both
+                cropped_aadhaar,
+                selfie_image
+            )
+
+            if similarity > 0.60:
+                status = "MATCH"
+            elif similarity > 0.50:
+                status = "REVIEW"
+            else:
+                status = "NO_MATCH"
+
             return {
-                "status": "REJECTED",
-                "reason": "Spoof detected",
-                "liveness": liveness
+                "status": status,
+                "similarity_score": round(similarity, 3),
+                "liveness": liveness,
+                "embedding": selfie_embedding.tolist(),   # <-- new
             }
-
-        similarity, selfie_embedding = self.compare_faces(   # <-- unpack both
-            cropped_aadhaar,
-            selfie_image
-        )
-
-        if similarity > 0.60:
-            status = "MATCH"
-        elif similarity > 0.50:
-            status = "REVIEW"
-        else:
-            status = "NO_MATCH"
-
-        return {
-            "status": status,
-            "similarity_score": round(similarity, 3),
-            "liveness": liveness,
-            "embedding": selfie_embedding.tolist(),   # <-- new
-        }
+        finally:
+            if cropped_aadhaar and os.path.exists(cropped_aadhaar):
+                os.remove(cropped_aadhaar)
