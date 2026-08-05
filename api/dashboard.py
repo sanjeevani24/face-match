@@ -4,7 +4,17 @@ from models.db import SessionLocal
 from models.verification_record import VerificationRecord
 from services.applicant_service import get_applicant_by_id
 
+import traceback
+
 router = APIRouter(tags=["Dashboard"])
+
+
+def safe_isoformat(val):
+    if val is None:
+        return None
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
 
 
 @router.get("/dashboard/stats")
@@ -30,6 +40,9 @@ def get_stats():
             "review": review,
             "avg_duration_seconds": round(avg_duration, 2) if avg_duration else None,
         }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Dashboard stats query error: {str(e)}")
     finally:
         db.close()
 
@@ -47,7 +60,7 @@ def get_history(limit: int = 50):
         return [
             {
                 "id": r.id,
-                "created_at": r.created_at.isoformat(),
+                "created_at": safe_isoformat(r.created_at),
                 "source": r.source,
                 "decision": r.decision,
                 "similarity": r.similarity,
@@ -57,6 +70,9 @@ def get_history(limit: int = 50):
             }
             for r in records
         ]
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"History query error: {str(e)}")
     finally:
         db.close()
 
@@ -73,7 +89,7 @@ def get_logs(limit: int = 100):
         return [
             {
                 "id": r.id,
-                "created_at": r.created_at.isoformat(),
+                "created_at": safe_isoformat(r.created_at),
                 "source": r.source,
                 "decision": r.decision,
                 "level": "error" if r.decision == "error" else "info",
@@ -91,6 +107,9 @@ def get_logs(limit: int = 100):
             }
             for r in records
         ]
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Logs query error: {str(e)}")
     finally:
         db.close()
 
