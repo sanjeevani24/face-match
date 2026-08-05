@@ -8,6 +8,7 @@ import Logs from "./pages/Logs.jsx";
 import OfficerCall from "./pages/OfficerCall.jsx";
 import CustomerCall from "./pages/CustomerCall.jsx";
 import CallSessionTest from "./pages/CallSessionTest.jsx";
+import CallReportView from "./pages/CallReportView";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
 
       {/* Customer is an external applicant -- no sidebar/header. */}
       <Route path="/customer/call" element={<CustomerCall />} />
+      <Route path="/report/:roomId" element={<CallReportView />} />
     </Routes>
   );
 }

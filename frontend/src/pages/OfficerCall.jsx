@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { PhoneCall, PlayCircle, StopCircle, Circle, Square } from "lucide-react";
@@ -34,6 +35,7 @@ export default function OfficerCall() {
 
   const [recording, setRecording] = useState(false);
   const [togglingRecording, setTogglingRecording] = useState(false);
+  const navigate = useNavigate();
 
   async function startCapture() {
     setError(null);
@@ -53,6 +55,7 @@ export default function OfficerCall() {
     try {
       await stopCallCapture(roomId);
       setCaptureStarted(false);
+      navigate(`/report/${roomId}`); 
       // recording is independent of capture now — don't touch it here
     } catch (e) {
       setError(`Could not stop capture: ${e?.response?.data?.detail || e.message}`);

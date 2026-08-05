@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from datetime import datetime, timezone
 from models.db import Base
 
@@ -46,3 +46,6 @@ class CallSession(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     started_at = Column(DateTime, nullable=True)
     ended_at = Column(DateTime, nullable=True)
+
+    transcript = Column(Text, nullable=True)
+    sentiment_summary = Column(Text, nullable=True)

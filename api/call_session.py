@@ -15,6 +15,8 @@ from services import call_session_store as store
 from services.livekit_bot import LiveKitCallBot
 from services.transcription_service import transcribe_recording
 from agents.live_call_session import LiveCallSession
+from fastapi import APIRouter, HTTPException, BackgroundTasks  # add BackgroundTasks
+from services.post_call_analysis_service import run_post_call_analysis  # add this import
 
 router = APIRouter(prefix="/call", tags=["call-session"])
 
@@ -188,7 +190,7 @@ def get_call_status(room_id: str):
 
 
 @router.post("/sessions/{room_id}/stop")
-def stop_call_capture(room_id: str):
+def stop_call_capture(room_id: str, background_tasks: BackgroundTasks):
     session = store.get_call_session(room_id)
     if not session:
         raise HTTPException(404, "Unknown session")
@@ -214,14 +216,14 @@ def stop_call_capture(room_id: str):
         )
 
     _runtime.pop(room_id, None)
-    # Relying on the room's empty_timeout (set at creation) rather than
-    # deleting here immediately -- avoids a race with any last-moment
-    # media flush.
+
+    # NEW — kick off transcript + sentiment analysis right after the call ends
+    background_tasks.add_task(run_post_call_analysis, room_id)
 
     return {"stopped": True, "result": final}
 
 # separate from _runtime — recording has its own lifecycle now
-_egress_sessions: dict[str, str] = {}   # room_id -> egress_id
+_egress_sessions: dict[str, str] = {}
 
 @router.post("/sessions/{room_id}/recording/start")
 def start_recording(room_id: str):

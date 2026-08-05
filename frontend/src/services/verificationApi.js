@@ -2,35 +2,6 @@ import api from "./api.js";
 import { dataUrlToFile } from "../utils/media.js";
 
 /**
- * ---------------------------------------------------------------------------
- * Endpoint contract — matches the session-based /liveness router
- * (api/liveness.py wrapping agents/liveness_session.py::LivenessSession)
- * ---------------------------------------------------------------------------
- *   POST /liveness/start   multipart: aadhaar (file)
- *                           -> { session_id, challenge, challenge_index,
- *                                challenge_total, progress, finished,
- *                                face_detected, verification, capture }
- *
- *   POST /liveness/frame    multipart: session_id (form field), frame (file)
- *                           -> same shape as above, updated for this frame
- *
- *   DELETE /liveness/session/{session_id}
- *                           -> { cancelled: boolean } — best-effort cleanup
- *
- * LivenessSession.verify() runs face matching internally the moment the
- * challenge sequence + a stable capture are both complete, so there is no
- * separate "call /face-match after liveness passes" step in this flow —
- * `verification` arrives already populated on the frame response where
- * `finished: true`.
- *
- * `verification_agent.verify()`'s exact return shape wasn't provided, so
- * ResultCard reads `match` / `similarity` off it. If your agent returns
- * different keys (e.g. `is_match` / `score`), that's the only place to
- * adjust — see components/verification/ResultCard.jsx.
- * ---------------------------------------------------------------------------
- */
-
-/**
  * Start a liveness/verification session for one Aadhaar upload.
  * @param {File} aadhaarFile
  * @returns {Promise<object>} initial session state, including session_id
@@ -223,3 +194,20 @@ export async function stopRecording(roomId) {
   const { data } = await api.post(`/call/sessions/${roomId}/recording/stop`);
   return data;
 }
+
+export async function getCallReport(roomId) {
+  const { data } = await api.get(`/call/sessions/${roomId}/report`);
+  return data;
+}
+
+export async function downloadReportPdf(roomId) {
+  const res = await api.get(`/call/sessions/${roomId}/report/pdf`, {
+    responseType: "blob",});
+  return res.data; // this is the actual PDF blob
+}
+
+export async function retryAnalysis(roomId) {
+  const { data } = await api.post(`/call/sessions/${roomId}/analyze`);
+  return data;
+}
+

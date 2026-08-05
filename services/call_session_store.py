@@ -77,3 +77,14 @@ def mark_stopped(room_id: str, decision: str, identity_flagged: bool, spoof_flag
             db.commit()
     finally:
         db.close()
+
+def save_analysis_results(room_id: str, transcript: str, sentiment_json: str) -> None:
+    db = SessionLocal()
+    try:
+        session = db.query(CallSession).filter(CallSession.room_id == room_id).first()
+        if session:
+            session.transcript = transcript
+            session.sentiment_summary = sentiment_json
+            db.commit()
+    finally:
+        db.close()
