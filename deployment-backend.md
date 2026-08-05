@@ -34,6 +34,7 @@ OpenCV, MediaPipe, and InsightFace require graphics-rendering system libraries. 
 sudo apt update
 sudo apt install -y \
     nginx \
+    ffmpeg \
     python3-pip \
     python3-venv \
     python3-dev \
