@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import queue
 import threading
 import time
@@ -7,6 +8,8 @@ from typing import Optional
 import numpy as np
 from livekit import rtc
 from services import livekit_client
+
+logger = logging.getLogger(__name__)
 
 class LiveKitCallBot:
 
@@ -42,7 +45,7 @@ class LiveKitCallBot:
 
         @self._room.on("track_subscribed")
         def on_track_subscribed(track, publication, participant):
-            print(f"[BOT] track_subscribed from participant.identity={participant.identity!r}, expecting={self.customer_identity!r}")   # <-- add this    
+            print(f"[BOT] track_subscribed from participant.identity={participant.identity!r}, expecting={self.customer_identity!r}")
             if participant.identity != self.customer_identity:
                 return
             if track.kind != rtc.TrackKind.KIND_VIDEO:
@@ -62,15 +65,13 @@ class LiveKitCallBot:
             self._joined_event.set()
             return
 
-        # Keep the loop alive (driving room events / the video stream
-        # task above) until stop() flips this flag.
         while not self._stop_flag.is_set():
             await asyncio.sleep(0.2)
 
         await self._room.disconnect()
 
     async def _consume_stream(self, video_stream: "rtc.VideoStream"):
-        print(f"[BOT] subscribed to customer video stream")   # <-- add this
+        print(f"[BOT] subscribed to customer video stream")
         async for event in video_stream:
             now = time.monotonic()
             if now - self._last_sample_at < self._sample_interval:
@@ -102,11 +103,13 @@ class LiveKitCallBot:
 
     def start_recording(self, room_name: str):
         """Starts a room-composite recording, uploaded directly to S3 by Egress."""
-        output_path = f"recordings/{room_name}.mp4"   # S3 key now, not /out/...
+        output_path = f"recordings/{room_name}.mp4"
         try:
             self._egress_id = livekit_client.start_room_recording(room_name, output_path)
+            logger.info(f"[BOT] Recording started successfully: egress_id={self._egress_id}, s3_key={output_path}")
             print(f"[BOT] recording started, egress_id={self._egress_id}, s3_key={output_path}")
         except Exception as exc:
+            logger.error(f"[BOT] Failed to start Egress recording for room {room_name}: {exc}", exc_info=True)
             print(f"[BOT] failed to start recording: {exc}")
 
     def stop_recording(self):
@@ -114,8 +117,10 @@ class LiveKitCallBot:
             return
         try:
             livekit_client.stop_room_recording(self._egress_id)
+            logger.info(f"[BOT] Recording stopped: egress_id={self._egress_id}")
             print(f"[BOT] recording stopped, egress_id={self._egress_id}")
         except Exception as exc:
+            logger.error(f"[BOT] Failed to stop Egress recording for egress_id {self._egress_id}: {exc}", exc_info=True)
             print(f"[BOT] failed to stop recording: {exc}")
         finally:
             self._egress_id = None

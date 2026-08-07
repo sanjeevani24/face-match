@@ -144,7 +144,7 @@ def _consume_frames(room_id: str, runtime: "_Runtime"):
 
 
 @router.post("/sessions/{room_id}/start")
-def start_call_capture(room_id: str, enable_recording: bool = False):
+def start_call_capture(room_id: str, enable_recording: bool = True):
     session = store.get_call_session(room_id)
     if not session:
         raise HTTPException(404, "Unknown session")
@@ -162,8 +162,6 @@ def start_call_capture(room_id: str, enable_recording: bool = False):
         raise HTTPException(504, "Bot did not join the room in time")
 
     if enable_recording:
-        # See LiveKitCallBot.start_recording's docstring -- no-op until
-        # Egress is wired up; self-hosted --dev mode doesn't include it.
         bot.start_recording(room_id)
 
     live_session = LiveCallSession(room_id, session.applicant_id, session.aadhaar_path)
@@ -229,7 +227,7 @@ _egress_sessions: dict[str, str] = {}
 def start_recording(room_id: str):
     if room_id in _egress_sessions:
         raise HTTPException(400, "Recording already in progress for this room")
-    output_path = f"/out/{room_id}.mp4"
+    output_path = f"recordings/{room_id}.mp4"
     try:
         egress_id = livekit_client.start_room_recording(room_id, output_path)
     except Exception as exc:

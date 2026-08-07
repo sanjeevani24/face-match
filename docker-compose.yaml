@@ -18,6 +18,7 @@ services:
 
   egress:
     image: livekit/egress
+    shm_size: '2gb'
     environment:
       - EGRESS_CONFIG_FILE=/egress-config.yaml
     volumes:
