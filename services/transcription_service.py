@@ -14,7 +14,11 @@ def _get_model():
     global _model
     if _model is None:
         logger.info("Initializing Faster-Whisper base model...")
-        _model = WhisperModel("base", device="cpu", compute_type="int8")
+        data_dir = os.environ.get("DATA_DIR", "./data")
+        cache_dir = os.path.abspath(os.path.join(data_dir, ".cache"))
+        os.makedirs(cache_dir, exist_ok=True)
+        os.environ["HF_HOME"] = cache_dir
+        _model = WhisperModel("base", device="cpu", compute_type="int8", download_root=cache_dir)
     return _model
 
 
