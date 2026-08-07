@@ -103,14 +103,17 @@ class LiveKitCallBot:
 
     def start_recording(self, room_name: str):
         """Starts a room-composite recording, uploaded directly to S3 by Egress."""
-        output_path = f"recordings/{room_name}.mp4"
-        try:
-            self._egress_id = livekit_client.start_room_recording(room_name, output_path)
-            logger.info(f"[BOT] Recording started successfully: egress_id={self._egress_id}, s3_key={output_path}")
-            print(f"[BOT] recording started, egress_id={self._egress_id}, s3_key={output_path}")
-        except Exception as exc:
-            logger.error(f"[BOT] Failed to start Egress recording for room {room_name}: {exc}", exc_info=True)
-            print(f"[BOT] failed to start recording: {exc}")
+        def _do_start():
+            output_path = f"recordings/{room_name}.mp4"
+            try:
+                self._egress_id = livekit_client.start_room_recording(room_name, output_path)
+                logger.info(f"[BOT] Recording started successfully: egress_id={self._egress_id}, s3_key={output_path}")
+                print(f"[BOT] recording started, egress_id={self._egress_id}, s3_key={output_path}")
+            except Exception as exc:
+                logger.error(f"[BOT] Failed to start Egress recording for room {room_name}: {exc}", exc_info=True)
+                print(f"[BOT] failed to start recording: {exc}")
+
+        threading.Thread(target=_do_start, daemon=True).start()
 
     def stop_recording(self):
         if not self._egress_id:

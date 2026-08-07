@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
-const API_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 15000;
+const API_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 30000;
 
 if (!API_URL && import.meta.env.DEV) {
   // eslint-disable-next-line no-console
