@@ -70,15 +70,29 @@ async def analyze_recording(bucket: str, key: str) -> VideoAnalysis:
         if uploaded.state.name == "FAILED":
             raise RuntimeError(f"Gemini file processing failed for {key}")
 
-        response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[uploaded, PROMPT],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=VideoAnalysis,
-                temperature=0.2,
-            ),
-        )
+        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
+        response = None
+        last_err = None
+        for m in models_to_try:
+            try:
+                response = gemini_client.models.generate_content(
+                    model=m,
+                    contents=[uploaded, PROMPT],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=VideoAnalysis,
+                        temperature=0.2,
+                    ),
+                )
+                logger.info(f"Successfully generated sentiment analysis using model {m}")
+                break
+            except Exception as e:
+                logger.warning(f"Gemini model {m} failed: {e}. Trying fallback...")
+                last_err = e
+
+        if response is None:
+            raise RuntimeError(f"All Gemini models failed: {last_err}")
+
         return VideoAnalysis.model_validate_json(response.text)
 
     finally:
