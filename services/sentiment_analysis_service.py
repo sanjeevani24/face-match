@@ -70,7 +70,11 @@ async def analyze_recording(bucket: str, key: str) -> VideoAnalysis:
         if uploaded.state.name == "FAILED":
             raise RuntimeError(f"Gemini file processing failed for {key}")
 
-        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = [
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+        ]
         response = None
         last_err = None
         for m in models_to_try:
