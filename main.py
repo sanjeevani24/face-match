@@ -2,6 +2,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+data_dir = os.path.abspath(os.environ.get("DATA_DIR", "./data"))
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(data_dir, ".matplotlib"))
+os.environ.setdefault("HF_HOME", os.path.join(data_dir, ".cache"))
+os.makedirs(os.path.join(data_dir, ".matplotlib"), exist_ok=True)
+os.makedirs(os.path.join(data_dir, ".cache"), exist_ok=True)
+
 from fastapi import FastAPI
 from api.face_match import router as face_match_router
 from api.liveness import router as liveness_router
