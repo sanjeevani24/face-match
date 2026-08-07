@@ -225,22 +225,40 @@ _egress_sessions: dict[str, str] = {}
 
 @router.post("/sessions/{room_id}/recording/start")
 def start_recording(room_id: str):
+    runtime = _runtime.get(room_id)
+    if runtime and runtime.bot and runtime.bot._egress_id:
+        return {"recording": True, "egress_id": runtime.bot._egress_id, "message": "Recording already in progress"}
+
     if room_id in _egress_sessions:
-        raise HTTPException(400, "Recording already in progress for this room")
+        return {"recording": True, "egress_id": _egress_sessions[room_id], "message": "Recording already in progress"}
+
     output_path = f"recordings/{room_id}.mp4"
     try:
         egress_id = livekit_client.start_room_recording(room_id, output_path)
     except Exception as exc:
         raise HTTPException(500, f"Failed to start recording: {exc}")
+
+    if runtime and runtime.bot:
+        runtime.bot._egress_id = egress_id
     _egress_sessions[room_id] = egress_id
     return {"recording": True, "egress_id": egress_id}
 
 @router.post("/sessions/{room_id}/recording/stop")
 def stop_recording(room_id: str):
     egress_id = _egress_sessions.pop(room_id, None)
+    runtime = _runtime.get(room_id)
+    if runtime and runtime.bot and runtime.bot._egress_id:
+        egress_id = runtime.bot._egress_id
+        runtime.bot._egress_id = None
+
     if not egress_id:
-        raise HTTPException(404, "No active recording for this room")
-    livekit_client.stop_room_recording(egress_id)
+        return {"recording": False, "message": "No active recording for this room"}
+
+    try:
+        livekit_client.stop_room_recording(egress_id)
+    except Exception as exc:
+        print(f"[RECORDING] Failed to stop room recording for egress_id {egress_id}: {exc}")
+
     return {"recording": False}
 
 
