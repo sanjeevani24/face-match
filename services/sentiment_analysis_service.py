@@ -10,8 +10,21 @@ from typing import Literal
 
 logger = logging.getLogger(__name__)
 
-s3 = boto3.client("s3")
-gemini_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+def _get_s3_client():
+    return boto3.client(
+        "s3",
+        region_name=os.environ.get("AWS_S3_REGION"),
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+    )
+
+
+def _get_gemini_client():
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable is not configured")
+    return genai.Client(api_key=api_key)
+
 
 class KeyMoment(BaseModel):
     approx_timestamp: str
@@ -41,11 +54,13 @@ Note timestamps for anything notable. Return JSON matching the schema only."""
 async def analyze_recording(bucket: str, key: str) -> VideoAnalysis:
     tmp_path = None
     uploaded = None
+    s3_client = _get_s3_client()
+    gemini_client = _get_gemini_client()
 
     try:
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp_path = tmp.name
-        s3.download_file(bucket, key, tmp_path)
+        s3_client.download_file(bucket, key, tmp_path)
 
         uploaded = gemini_client.files.upload(file=tmp_path)
         while uploaded.state.name == "PROCESSING":
@@ -56,7 +71,7 @@ async def analyze_recording(bucket: str, key: str) -> VideoAnalysis:
             raise RuntimeError(f"Gemini file processing failed for {key}")
 
         response = gemini_client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             contents=[uploaded, PROMPT],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
