@@ -72,28 +72,33 @@ class LiveKitCallBot:
 
     async def _consume_stream(self, video_stream: "rtc.VideoStream"):
         print(f"[BOT] subscribed to customer video stream")
-        async for event in video_stream:
-            now = time.monotonic()
-            if now - self._last_sample_at < self._sample_interval:
-                continue
-            self._last_sample_at = now
+        try:
+            async for event in video_stream:
+                if self._stop_flag.is_set():
+                    break
+                now = time.monotonic()
+                if now - self._last_sample_at < self._sample_interval:
+                    continue
+                self._last_sample_at = now
 
-            frame = event.frame
-            try:
-                rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(frame.height, frame.width, 3)
-            except ValueError as exc:
-                print(f"[BOT] frame reshape failed: {exc} (data size={len(frame.data)}, {frame.width}x{frame.height})")
-                continue
-            bgr = rgb[:, :, ::-1]
-
-            print(f"[BOT] sampled frame {frame.width}x{frame.height}")
-
-            if self.frame_queue.full():
+                frame = event.frame
                 try:
-                    self.frame_queue.get_nowait()
-                except queue.Empty:
-                    pass
-            self.frame_queue.put_nowait((time.time(), bgr))
+                    rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(frame.height, frame.width, 3)
+                except ValueError as exc:
+                    print(f"[BOT] frame reshape failed: {exc} (data size={len(frame.data)}, {frame.width}x{frame.height})")
+                    continue
+                bgr = rgb[:, :, ::-1]
+
+                print(f"[BOT] sampled frame {frame.width}x{frame.height}")
+
+                if self.frame_queue.full():
+                    try:
+                        self.frame_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+                self.frame_queue.put_nowait((time.time(), bgr))
+        except asyncio.CancelledError:
+            pass
 
     def wait_until_joined(self, timeout: float = 10.0) -> bool:
         ok = self._joined_event.wait(timeout=timeout)
