@@ -152,7 +152,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/html/face-match
 EnvironmentFile=/var/www/html/face-match/.env
-Environment="PATH=/var/www/html/face-match/.venv/bin"
+Environment="PATH=/var/www/html/face-match/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=/var/www/html/face-match/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8037 --workers 1
 TimeoutStartSec=300
 

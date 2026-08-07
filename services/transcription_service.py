@@ -5,6 +5,8 @@ import subprocess
 import boto3
 from faster_whisper import WhisperModel
 
+import shutil
+
 logger = logging.getLogger(__name__)
 _model = None
 
@@ -27,8 +29,9 @@ def _download_from_s3(bucket: str, key: str, dest_path: str):
 
 
 def _extract_audio(video_path: str, audio_path: str):
+    ffmpeg_bin = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
     res = subprocess.run(
-        ["ffmpeg", "-y", "-i", video_path, "-vn", "-ac", "1", "-ar", "16000", audio_path],
+        [ffmpeg_bin, "-y", "-i", video_path, "-vn", "-ac", "1", "-ar", "16000", audio_path],
         check=True,
         capture_output=True,
     )
